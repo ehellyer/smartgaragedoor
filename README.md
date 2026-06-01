@@ -257,4 +257,5 @@ If the command code for status messages differs from `0x0199` or `0x0181`, updat
 - [HomeSpan](https://github.com/HomeSpan/HomeSpan) — ESP32 HomeKit Arduino library
 - [ESPHome ratgdo](https://github.com/ratgdo/esphome-ratgdo) — reference for command codes and payload layout
 - [Craftsman 045DCT at LiftMaster](https://www.liftmaster.com/receiver-logic-board-security-2-0/p/045DCT) — product page / part reference
-- [Expressive ESP32 Dev Module](https://docs.platformio.org/en/latest/boards/espressif32/esp32dev.html) - Datasheet and information about the ESP32 Dev Module 
+- [Espressif ESP32 Dev Module](https://docs.platformio.org/en/latest/boards/espressif32/esp32dev.html) - Datasheet and information about the ESP32 Dev Module 
+- [Espressif Hardware Design Guidelines](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32/index.html) - This document provides guidelines for the ESP32 SoC

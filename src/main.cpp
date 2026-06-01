@@ -53,6 +53,7 @@ void onConnection(int count) {
 #define GDO_RX_PIN       22    // 2N7000  drain (level-shifted, inverted 12V→3.3V)
 #define REED_CLOSED_PIN  25    // SW1 — closed end-stop (LOW = door at closed position)
 #define REED_OPEN_PIN    26    // SW2 — open   end-stop (LOW = door at open  position)
+#define LED_PIN 2         // On-board LED (GPIO2) — optional, can be used for status indication or debugging
 
 // ── Setup ────────────────────────────────────────────────────────────────────
 void setup() {
@@ -64,12 +65,16 @@ void setup() {
     // receiving status packets as soon as the bus is ready.
     GDOBus::begin(GDO_TX_PIN, GDO_RX_PIN);
 
+    // Configure status LED pin.
+    pinMode(LED_PIN, OUTPUT);
+    
     // Configure HomeSpan for native HomeKit (no hub needed).
-    homeSpan.enableOTA();                          // OTA firmware updates
+    homeSpan.enableOTA();                           // OTA firmware updates
     homeSpan.setSketchVersion("1.1.0");
-    homeSpan.setQRID("GRAG");                      // 4-char ID used in QR code
-    homeSpan.setConnectionCallback(onConnection);  // Print WiFi details on connect/reconnect
+    homeSpan.setQRID("GRAG");                       // 4-char ID used in QR code
+    homeSpan.setConnectionCallback(onConnection);   // Print WiFi details on connect/reconnect
     homeSpan.setPairingCode("94512321");
+    //homeSpan.setStatusPin(LED_PIN);               // Optional: HomeSpan can use the LED pin to indicate status (see HomeSpan docs for details).  Must remove pinMode(LED_PIN, OUTPUT) and digitalWrite() calls from this sketch if enabled.
     homeSpan.begin(Category::GarageDoorOpeners, "Garage Door");
 
     // ── Accessory definition ────────────────────────────────────────────────
@@ -87,7 +92,18 @@ void setup() {
 }
 
 // ── Main Loop ────────────────────────────────────────────────────────────────
+
+unsigned long lastRun = 0;
+const unsigned long INTERVAL = 500; // ms
+bool ledState = false;
+
 void loop() {
     homeSpan.poll();   // Drives HAP, WiFi provisioning, and GarageDoorService callbacks
     GDOBus::poll();    // Reads and decodes incoming Security+ 2.0 bus packets
+
+    if (millis() - lastRun >= INTERVAL) {
+        lastRun = millis();
+        ledState = !ledState;
+        digitalWrite(LED_PIN, ledState);
+    }
 }
