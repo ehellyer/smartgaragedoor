@@ -63,8 +63,8 @@ void setup() {
         new Service::AccessoryInformation();
             new Characteristic::Identify();
             new Characteristic::Name("Garage Door");
-            new Characteristic::Manufacturer("DIY ESP32");
-            new Characteristic::Model("SecPlus-GDO v1.1");
+            new Characteristic::Manufacturer("Hellyer Multimedia");
+            new Characteristic::Model("HMGDO001");
             new Characteristic::SerialNumber("GDO-001");
             new Characteristic::FirmwareRevision("1.1.0");
 
