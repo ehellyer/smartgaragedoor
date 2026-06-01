@@ -30,9 +30,23 @@
 // =============================================================================
 
 #include <Arduino.h>   // Required by PlatformIO — not needed in Arduino IDE .ino files
+#include <WiFi.h>
 #include "HomeSpan.h"
 #include "GDOBus.h"
 #include "GarageDoor.h"
+
+// ── Connection callback (called by HomeSpan each time WiFi connects/reconnects)
+// count == 1 → initial connection; count > 1 → reconnection after dropout
+void onConnection(int count) {
+    Serial.println(count == 1 ? F("\n=== WiFi Connected ===") : F("\n=== WiFi Reconnected ==="));
+    Serial.print(F("  SSID       : ")); Serial.println(WiFi.SSID());
+    Serial.print(F("  IP Address : ")); Serial.println(WiFi.localIP());
+    Serial.print(F("  Gateway    : ")); Serial.println(WiFi.gatewayIP());
+    Serial.print(F("  Subnet     : ")); Serial.println(WiFi.subnetMask());
+    Serial.print(F("  MAC Address: ")); Serial.println(WiFi.macAddress());
+    Serial.print(F("  Signal     : ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+    Serial.println(F("======================\n"));
+}
 
 // ── Pin Definitions ──────────────────────────────────────────────────────────
 #define GDO_TX_PIN       21    // AO3400A gate  (open-drain pull-down on 12V bus)
@@ -54,7 +68,8 @@ void setup() {
     homeSpan.enableOTA();                          // OTA firmware updates
     homeSpan.setSketchVersion("1.1.0");
     homeSpan.setQRID("GRAG");                      // 4-char ID used in QR code
-
+    homeSpan.setConnectionCallback(onConnection);  // Print WiFi details on connect/reconnect
+    homeSpan.setPairingCode("94512321");
     homeSpan.begin(Category::GarageDoorOpeners, "Garage Door");
 
     // ── Accessory definition ────────────────────────────────────────────────
