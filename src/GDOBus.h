@@ -39,6 +39,12 @@
 #define GDO_BAUD            9600    // Security+ 2.0 wireline baud rate
 #define GDO_SERIAL          Serial2 // ESP32 UART2 (remapped to custom pins)
 
+// ── Debug level ───────────────────────────────────────────────────────────────
+//   0 = silent  — no serial output from GDOBus (except errors)
+//   1 = normal  — decoded packets, state changes, TX confirmations
+//   2 = verbose — everything in level 1 PLUS raw hex dump of every packet
+#define GDO_DEBUG_LEVEL     1
+
 // ── Wireline Command Codes ────────────────────────────────────────────────────
 // Discovered by Paul Wieland (ratgdo project) and the ESPHome ratgdo community.
 // Reference: https://github.com/ratgdo/esphome-ratgdo
@@ -49,8 +55,8 @@
 #define GDO_CMD_DOOR_ACTION     0x0280  // Door button press  (toggle open/close/stop)
 #define GDO_CMD_LIGHT_ACTION    0x0281  // Light button press (toggle opener light)
 #define GDO_CMD_LOCK_ACTION     0x0284  // Lock  button press (toggle lock-out)
-#define GDO_CMD_STATUS          0x0199  // Status broadcast from the opener
-#define GDO_CMD_STATUS_2        0x0181  // Secondary status broadcast
+#define GDO_CMD_STATUS          0x0199  // Status broadcast from the opener (unconfirmed — not yet seen in log)
+#define GDO_CMD_STATUS_2        0x0081  // Secondary status broadcast (confirmed — opener broadcasts this every ~2 s)
 
 // ── Door State ────────────────────────────────────────────────────────────────
 // Mirrors the HAP CurrentDoorState values so they can be used directly.
@@ -104,11 +110,39 @@ public:
     // detection from outside this class.
     static unsigned long lastRxTimestamp()       { return _lastRxTime; }
 
+    // ── Diagnostics ───────────────────────────────────────────────────────────
+
+    // Blocking bus health check — call once from setup() after begin().
+    // Listens for timeoutMs milliseconds, then prints a full diagnostic report
+    // to Serial and returns true if at least one packet decoded successfully.
+    //
+    // Report differentiates four failure modes:
+    //   rawBytes == 0           → no signal  (wiring / MOSFET / pin issue)
+    //   rawBytes > 0, sync == 0 → signal but wrong framing  (baud rate?)
+    //   sync > 0, decoded == 0  → framing OK but decode fail (protocol mismatch)
+    //   decoded > 0             → PASS
+    static bool verify(uint32_t timeoutMs = 5000);
+
+    // Running counters — reset at begin(), incremented during normal operation.
+    static uint32_t totalBytesRx()     { return _statBytesRx;    }
+    static uint32_t totalPacketsRx()   { return _statPacketsRx;  }
+    static uint32_t totalDecodeErrors(){ return _statDecodeErr;  }
+    static uint32_t totalTxCommands()  { return _statTxCmds;     }
+
+    // Print a one-line running stats summary to Serial.
+    static void printStats();
+
+    // Arm auto-TX for the next learn-mode window (opener broadcasts state=6).
+    // Type 't' in the serial monitor.  Safe to call before or during the learn
+    // window — fires exactly once when state=6 is first detected after arming.
+    static void armLearnEnroll();
+
 private:
     // ── Internal helpers ──────────────────────────────────────────────────────
     static void processPacket(const uint8_t *pkt);   // Decode a complete packet
     static void loadIdentity();                       // Load NVS → _rolling, _deviceId
     static void saveRolling();                        // Persist _rolling to NVS
+    static void printHex(const uint8_t *buf, size_t len); // Hex dump to Serial
 
     // ── State ─────────────────────────────────────────────────────────────────
     static GDODoorState     _doorState;
@@ -122,6 +156,17 @@ private:
     static uint8_t          _rxBuf[GDO_PACKET_LEN];
     static size_t           _rxIdx;
     static unsigned long    _lastRxTime;
+
+    // ── Learn-mode auto-enrolment ─────────────────────────────────────────────
+    static bool             _learnEnrollArmed;  // set by armLearnEnroll()
+    static bool             _inLearnMode;       // true while opener broadcasts state=6
+    static bool             _pendingLearnTX;    // TX deferred out of processPacket context
+
+    // ── Running statistics ────────────────────────────────────────────────────
+    static uint32_t         _statBytesRx;
+    static uint32_t         _statPacketsRx;
+    static uint32_t         _statDecodeErr;
+    static uint32_t         _statTxCmds;
 
     // Gap (ms) between UART bytes that signals end-of-packet / new packet start.
     // At 9600 baud one byte takes ~1 ms; 20 ms gap is conservative.

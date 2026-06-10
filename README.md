@@ -91,13 +91,13 @@ Both Q1 and Q2 invert their respective signals.  The ESP32 UART2 is configured w
 Both switches wire identically — one terminal to GND, the other to the GPIO pin with a pull-up resistor. `INPUT_PULLUP` is also enabled in firmware as a belt-and-suspenders measure.
 
 ```
-3.3 V ──[R4 10kΩ]──┬── GPIO25  (CLOSED end-stop)
+3.3 V ──[R4 10kΩ]───┬── GPIO25  (CLOSED end-stop)
                     │
                    [SW1 — mounted at bottom of door frame]
                     │
                    GND
 
-3.3 V ──[R5 10kΩ]──┬── GPIO26  (OPEN end-stop)
+3.3 V ──[R5 10kΩ]───┬── GPIO26  (OPEN end-stop)
                     │
                    [SW2 — mounted at fully-open position on overhead track]
                     │
@@ -106,15 +106,14 @@ Both switches wire identically — one terminal to GND, the other to the GPIO pi
 
 **State truth table:**
 
-| SW1 (GPIO25) | SW2 (GPIO26) | Door state |
-|---|---|---|
-| LOW | HIGH | **Closed** — magnet at bottom |
-| HIGH | LOW | **Open** — magnet at top of travel |
-| HIGH | HIGH | **In between** — Opening, Closing, or Stopped |
-| LOW | LOW | Error (impossible mechanically) |
+| SW1 (GPIO25) | SW2 (GPIO26) | Door state                                    |
+| CLD end-stop | OPN end stop |                                               |
+|--------------|--------------|-----------------------------------------------|
+| LOW          | HIGH         | **Open**                                      |
+| HIGH         | LOW          | **Closed**                                    |
+| HIGH         | HIGH         | **In between** — Opening, Closing, or Stopped |
+| LOW          | LOW          | Error (impossible mechanically)               |                
 
-**Mounting the open-position switch (SW2):**  
-For a typical sectional overhead door, the "fully open" position is when the bottom panel has cleared the vertical track and is lying flat along the ceiling rails.  Mount SW2 on the overhead track where the bottom panel comes to rest, and the magnet on the door's bottom panel.  The exact position depends on your door geometry — test manually before final mounting.
 
 ---
 
@@ -156,7 +155,7 @@ Libraries are cached in `~/.platformio/packages/` and reused across projects.
 
 ### 4. Select your board
 
-The default environment in `platformio.ini` targets a generic **ESP32 Dev Module** (`esp32dev`).  If you are using a **Wemos D1 Mini ESP32**, open `platformio.ini` and uncomment the `[env:wemos_d1_mini32]` section (and comment out `[env:esp32dev]`).
+The default environment in `platformio.ini` targets a generic **ESP32 Dev Module** (`esp32dev`).  If you are using a **Wemos D1 Mini ESP32**, open `platformio.ini` and use `[env:wemos_d1_mini32]` and comment out `[env:esp32dev]`.
 
 ### 5. Configure pin assignments
 

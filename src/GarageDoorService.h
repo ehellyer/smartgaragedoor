@@ -6,20 +6,22 @@
 //    REED_CLOSED (GPIO25) — mounted at the CLOSED position on the door frame
 //    REED_OPEN   (GPIO26) — mounted at the FULLY OPEN position on the door frame
 //
-//  Both switches wire identically (NC magnet pulls pin LOW via INPUT_PULLUP):
-//    LOW  = magnet present = door IS at that end-stop
-//    HIGH = magnet absent  = door is NOT at that end-stop
+//  Both switches are normally-closed (NC).  The contact shorts to GND when
+//  the magnet is absent and opens when the magnet is present.  External pull-
+//  ups (reinforced by INPUT_PULLUP) hold the pin HIGH while the switch is open.
+//    HIGH = magnet present = switch open   = door IS at that end-stop
+//    LOW  = magnet absent  = switch closed = door is NOT at that end-stop
 //
 //  State truth table:
 //  ┌──────────────┬────────────┬──────────────────────────────────────────────┐
 //  │ REED_CLOSED  │ REED_OPEN  │ CurrentDoorState                             │
 //  ├──────────────┼────────────┼──────────────────────────────────────────────┤
-//  │ LOW          │ HIGH       │ CLOSED (1) — definitive hardware signal       │
-//  │ HIGH         │ LOW        │ OPEN   (0) — definitive hardware signal       │
-//  │ HIGH         │ HIGH       │ In between → OPENING(2) / CLOSING(3) /       │
+//  │ HIGH         │ LOW        │ CLOSED (1) — definitive hardware signal       │
+//  │ LOW          │ HIGH       │ OPEN   (0) — definitive hardware signal       │
+//  │ LOW          │ LOW        │ In between → OPENING(2) / CLOSING(3) /       │
 //  │              │            │              STOPPED(4) — inferred from       │
 //  │              │            │              last command + bus status        │
-//  │ LOW          │ LOW        │ Error — both triggered simultaneously         │
+//  │ HIGH         │ HIGH       │ Error — both triggered simultaneously         │
 //  │              │            │ (mechanically impossible; ignored)            │
 //  └──────────────┴────────────┴──────────────────────────────────────────────┘
 //
@@ -52,23 +54,18 @@ struct GarageDoorService : Service::GarageDoorOpener {
     bool         reedClosedActive;
     bool         reedOpenActive;
 
-    // Raw (un-debounced) readings from last iteration
-    bool         rawClosedLast;
-    bool         rawOpenLast;
-
-    // Timestamps when raw reading first changed (for debounce)
+    // Timestamps used by the debounce filter
     unsigned long closedChangeTime;
     unsigned long openChangeTime;
 
-    static const unsigned long DEBOUNCE_MS      = 50;   // Switch bounce filter
-    static const unsigned long TRAVEL_TIMEOUT_MS = 30000; // 30 s max door travel
+    static const unsigned long DEBOUNCE_MS = 50;   // Switch bounce filter
+    static const unsigned long TRAVEL_TIMEOUT_MS = 18000; // 18 s max door travel
 
     // ── Travel state ───────────────────────────────────────────────────────────
     unsigned long cmdSentTime;   // millis() when last door command was sent; 0 = none
 
     // ── Constructor ────────────────────────────────────────────────────────────
-    GarageDoorService(uint8_t closedPin, uint8_t openPin)
-        : Service::GarageDoorOpener()
+    GarageDoorService(uint8_t closedPin, uint8_t openPin) : Service::GarageDoorOpener()
     {
         reedClosedPin = closedPin;
         reedOpenPin   = openPin;
@@ -76,11 +73,9 @@ struct GarageDoorService : Service::GarageDoorOpener {
         pinMode(reedClosedPin, INPUT_PULLUP);
         pinMode(reedOpenPin,   INPUT_PULLUP);
 
-        // Read initial hardware state (LOW = magnet present = active)
-        reedClosedActive = (digitalRead(reedClosedPin) == LOW);
-        reedOpenActive   = (digitalRead(reedOpenPin)   == LOW);
-        rawClosedLast    = reedClosedActive;
-        rawOpenLast      = reedOpenActive;
+        // Read initial hardware state (HIGH = magnet present = door at end-stop)
+        reedClosedActive = (digitalRead(reedClosedPin) == HIGH);
+        reedOpenActive   = (digitalRead(reedOpenPin)   == HIGH);
         closedChangeTime = 0;
         openChangeTime   = 0;
         cmdSentTime      = 0;
@@ -134,14 +129,12 @@ struct GarageDoorService : Service::GarageDoorOpener {
     void loop() override {
 
         // ── 1. Debounce both reed switches ────────────────────────────────────
-        bool rawClosed = (digitalRead(reedClosedPin) == LOW);
-        bool rawOpen   = (digitalRead(reedOpenPin)   == LOW);
+        // HIGH = magnet present = door IS at that end-stop (NC switch + pull-up)
+        bool rawClosed = (digitalRead(reedClosedPin) == HIGH);
+        bool rawOpen   = (digitalRead(reedOpenPin)   == HIGH);
 
-        bool closedChanged = debounce(rawClosed, rawClosedLast, closedChangeTime);
-        bool openChanged   = debounce(rawOpen,   rawOpenLast,   openChangeTime);
-
-        rawClosedLast = rawClosed;
-        rawOpenLast   = rawOpen;
+        bool closedChanged = debounce(rawClosed, reedClosedActive, closedChangeTime);
+        bool openChanged   = debounce(rawOpen,   reedOpenActive,   openChangeTime);
 
         // Accept debounced state changes
         if (closedChanged) {
@@ -157,7 +150,7 @@ struct GarageDoorService : Service::GarageDoorOpener {
 
         // ── 2. Bus status update (only used when neither end-stop is active) ──
         //
-        //  When both reed switches are HIGH (door is in between), we trust the
+        //  When both reed switches are LOW (door is in between), we trust the
         //  opener's status broadcast for OPENING vs CLOSING direction.
         //  When either end-stop is active, the reed switch has authority.
         if (!reedClosedActive && !reedOpenActive) {
@@ -191,16 +184,24 @@ struct GarageDoorService : Service::GarageDoorOpener {
 private:
 
     // ==========================================================================
+    // NC switches + pull-ups: HIGH = magnet present = door at that end-stop
+    // | SW1 (GPIO25) | SW2 (GPIO26) | Door state                                    |
+    // | CLD end-stop | OPN end stop |                                               |
+    // |--------------|--------------|-----------------------------------------------|
+    // | HIGH         | LOW          | **Closed**                                    |
+    // | LOW          | HIGH         | **Open**                                      |
+    // | LOW          | LOW          | **In between** — Opening, Closing, or Stopped |
+    // | HIGH         | HIGH         | Error (impossible mechanically)               |
     //  resolveHardwareState()
     //  Translate the two reed switch readings into a HAP door state integer.
     //  Called only at construction time for the initial state.
     // ==========================================================================
     int resolveHardwareState() {
+        if (!reedClosedActive && reedOpenActive) return 0;   // Open
         if (reedClosedActive && !reedOpenActive) return 1;   // Closed
-        if (reedOpenActive   && !reedClosedActive) return 0; // Open
         if (!reedClosedActive && !reedOpenActive) return 4;  // In-between → Stopped
         // Both active simultaneously is an error; default to Stopped
-        Serial.println("[Reed] WARNING: Both reed switches active at boot — check wiring!");
+        Serial.println("[Reed] WARNING: Both reed switches active — check wiring!   Defaulting to Stopped state.");
         return 4;
     }
 
@@ -210,19 +211,23 @@ private:
     //  differs from the last accepted state.
     //  Updates changeTime in-place.
     // ==========================================================================
-    bool debounce(bool rawNow, bool rawLast, unsigned long &changeTime) {
-        if (rawNow != rawLast) {
-            // Reading just changed — start / reset debounce timer
-            if (changeTime == 0) changeTime = millis();
-            return false;   // Not yet stable
+    // Compare rawNow against the last *accepted* (debounced) state.
+    // Returns true once rawNow has held a value different from `accepted`
+    // continuously for DEBOUNCE_MS, signalling a confirmed state change.
+    // (Previous version compared against the last *raw* reading, which reset
+    //  the timer every other iteration and prevented the window from filling.)
+    bool debounce(bool rawNow, bool accepted, unsigned long &changeTime) {
+        if (rawNow == accepted) {
+            changeTime = 0;   // Steady at current accepted value — nothing pending
+            return false;
         }
-        // Reading is stable
-        if (changeTime != 0 && millis() - changeTime >= DEBOUNCE_MS) {
+        // rawNow differs from accepted — start or keep the stability timer
+        if (changeTime == 0) changeTime = millis();
+        if (millis() - changeTime >= DEBOUNCE_MS) {
             changeTime = 0;
-            return true;    // Stable for long enough — accept the change
+            return true;      // Held long enough — accept the change
         }
-        changeTime = 0;     // Stable but same as last accepted — no change
-        return false;
+        return false;         // Still within bounce window
     }
 
     // ==========================================================================
