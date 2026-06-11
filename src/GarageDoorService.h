@@ -1,5 +1,5 @@
 // =============================================================================
-//  GarageDoor.h  —  HomeSpan GarageDoorOpener Service  (v1.1 — dual reed)
+//  GarageDoorService.h  —  HomeSpan GarageDoorOpener Service  (v1.0.0 — dual reed)
 //
 //  Two magnetic reed switches provide definitive hardware end-stop signals:
 //
@@ -16,13 +16,13 @@
 //  ┌──────────────┬────────────┬──────────────────────────────────────────────┐
 //  │ REED_CLOSED  │ REED_OPEN  │ CurrentDoorState                             │
 //  ├──────────────┼────────────┼──────────────────────────────────────────────┤
-//  │ HIGH         │ LOW        │ CLOSED (1) — definitive hardware signal       │
-//  │ LOW          │ HIGH       │ OPEN   (0) — definitive hardware signal       │
+//  │ HIGH         │ LOW        │ CLOSED (1) — definitive hardware signal      │
+//  │ LOW          │ HIGH       │ OPEN   (0) — definitive hardware signal      │
 //  │ LOW          │ LOW        │ In between → OPENING(2) / CLOSING(3) /       │
-//  │              │            │              STOPPED(4) — inferred from       │
-//  │              │            │              last command + bus status        │
-//  │ HIGH         │ HIGH       │ Error — both triggered simultaneously         │
-//  │              │            │ (mechanically impossible; ignored)            │
+//  │              │            │              STOPPED(4) — inferred from      │
+//  │              │            │              last command + bus status       │
+//  │ HIGH         │ HIGH       │ Error — both triggered simultaneously        │
+//  │              │            │ (mechanically impossible)                    │
 //  └──────────────┴────────────┴──────────────────────────────────────────────┘
 //
 //  State priority (highest first):

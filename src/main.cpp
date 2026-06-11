@@ -88,6 +88,16 @@ void setup()
     delay(200);
     Serial.println(F("\n\n=== Smart Garage Door Controller v1.0.0 ==="));
 
+    // Initialise the Security+ 2.0 serial bus driver.
+    GDOBus::begin(GDO_TX_PIN, GDO_RX_PIN);
+
+    bool busOK = GDOBus::verify(1000);
+    if (!busOK) 
+    {
+        Serial.println(F("[GDO] WARNING: Bus verify failed — check wiring"));
+    }
+
+
     // Configure HomeSpan for native HomeKit (no hub needed).
     homeSpan.setLogLevel(1);   // Enable LOG1 output (reed state, HAP events, TX confirmations)
     homeSpan.begin(Category::GarageDoorOpeners, "Garage Door Opener");
@@ -105,16 +115,6 @@ void setup()
             new Characteristic::Model("HMG-GDO-001");
             new Characteristic::SerialNumber("GDO-001");
             new Characteristic::FirmwareRevision("1.0.0");
-
-
-    // Initialise the Security+ 2.0 serial bus driver.
-    GDOBus::begin(GDO_TX_PIN, GDO_RX_PIN);
-
-    bool busOK = GDOBus::verify(1000);
-    if (!busOK) 
-    {
-        Serial.println(F("[GDO] WARNING: Bus verify failed — check wiring"));
-    }
 
     new GarageDoorService(REED_CLOSED_PIN, REED_OPEN_PIN);
 }
