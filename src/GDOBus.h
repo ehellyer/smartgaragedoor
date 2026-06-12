@@ -46,20 +46,24 @@
 #define GDO_DEBUG_LEVEL     1
 
 // ── Wireline Command Codes ────────────────────────────────────────────────────
-// Discovered by Paul Wieland (ratgdo project) and the ESPHome ratgdo community.
+// Verified against the ratgdo project source (components/ratgdo/secplus2.cpp)
+// and against live bus captures from this opener + wall unit.
 // Reference: https://github.com/ratgdo/esphome-ratgdo
-//
-// NOTE: If your opener does not respond, enable GDO_DEBUG_RX in GDOBus.cpp
-//       and observe the raw command codes printed to Serial.  You can then
-//       substitute the correct values below.
-#define GDO_CMD_DOOR_ACTION     0x0280  // Door button press  (toggle open/close/stop)
-#define GDO_CMD_LIGHT_ACTION    0x0281  // Light button press (toggle opener light)
-#define GDO_CMD_LOCK_ACTION     0x0284  // Lock  button press (toggle lock-out)
-#define GDO_CMD_STATUS          0x0199  // Status broadcast from the opener (unconfirmed — not yet seen in log)
-#define GDO_CMD_STATUS_2        0x0081  // Secondary status broadcast (confirmed — opener broadcasts this every ~2 s)
+#define GDO_CMD_GET_STATUS      0x0080  // Request a status report (opener replies with 0x081)
+#define GDO_CMD_STATUS          0x0081  // Status report — sent on request or when state changes (NOT periodic)
+#define GDO_CMD_OBST_1          0x0084  // Obstruction sensor broadcast 1 (seen on bus; not parsed)
+#define GDO_CMD_OBST_2          0x0085  // Obstruction sensor broadcast 2 (seen on bus; not parsed)
+#define GDO_CMD_LOCK            0x018C  // Lock action (nibble: 0=unlock 1=lock 2=toggle)
+#define GDO_CMD_DOOR_ACTION     0x0280  // Door action (nibble: 0=close 1=open 2=toggle 3=stop; press+release)
+#define GDO_CMD_LIGHT           0x0281  // Light action (nibble: 0=off 1=on 2=toggle)
+#define GDO_CMD_MOTOR_ON        0x0284  // Motor-running broadcast from the opener
+#define GDO_CMD_MOTION          0x0285  // Motion detected broadcast
 
 // ── Door State ────────────────────────────────────────────────────────────────
 // Mirrors the HAP CurrentDoorState values so they can be used directly.
+// (Note: the raw nibble in STATUS packets uses DIFFERENT values —
+//  0=unknown 1=open 2=closed 3=stopped 4=opening 5=closing — and is
+//  translated to this enum in handleDecoded().)
 enum class GDODoorState : uint8_t {
     OPEN    = 0,   // Door is fully open
     CLOSED  = 1,   // Door is fully closed
@@ -67,6 +71,16 @@ enum class GDODoorState : uint8_t {
     CLOSING = 3,   // Door is in motion, moving to closed
     STOPPED = 4,   // Door stopped mid-travel
     UNKNOWN = 255, // State not yet received from the opener
+};
+
+// ── Door Action ───────────────────────────────────────────────────────────────
+// Explicit door commands carried in the DOOR_ACTION nibble (ratgdo DoorAction).
+// OPEN/CLOSE are idempotent — safe to repeat, no toggle guesswork needed.
+enum class GDODoorAction : uint8_t {
+    CLOSE  = 0,
+    OPEN   = 1,
+    TOGGLE = 2,
+    STOP   = 3,
 };
 
 // Callback signature for door state changes received from the bus
@@ -88,10 +102,35 @@ public:
 
     // ── Commands ──────────────────────────────────────────────────────────────
 
-    // Encode and transmit a door-toggle command (open→close, close→open, or
-    // stop if the door is mid-travel).  Waits for bus idle before transmitting.
-    // Rolling code is incremented and persisted to NVS after each transmission.
-    static void sendDoorCommand();
+    // Transmit an explicit door action (OPEN / CLOSE / TOGGLE / STOP).
+    // Per the Security+ 2.0 wireline protocol (verified against ratgdo), each
+    // action is sent as a button-PRESS packet followed ~150 ms later by a
+    // RELEASE packet; both share one rolling code, incremented after the pair.
+    // Each packet is preceded by the required bus preamble (~1.3 ms LOW).
+    // Blocks for ~150-300 ms.  OPEN and CLOSE are idempotent.
+    //
+    // NOTE: wireline control does NOT require enrolment via the Learn button —
+    // the opener accepts commands from any device on the wired bus.
+    static void sendDoorAction(GDODoorAction action);
+
+    // Legacy wrapper — sends a TOGGLE door action (used by the learn-enrol TX).
+    static void sendDoorCommand()  { sendDoorAction(GDODoorAction::TOGGLE); }
+
+    // Ask the opener to report its status (door/light/lock/obstruction/learn).
+    // The opener replies with a 0x081 STATUS packet which updates the cached
+    // state below.  It does NOT broadcast status periodically on its own —
+    // only on request or when its state changes — so poll this when fresh
+    // state is needed (e.g., while verifying a commanded door movement).
+    static void requestStatus();
+
+    // Switch the opener's light on/off (LIGHT 0x281; single packet, no
+    // press/release pair).  Confirm via requestStatus() + getLightOn().
+    static void sendLightAction(bool on);
+
+    // Engage/release the remote lockout — blocks wireless remotes, the wired
+    // bus keeps working (LOCK 0x18C; single packet).  Confirm via
+    // requestStatus() + getLocked().
+    static void sendLockAction(bool lock);
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -105,6 +144,20 @@ public:
     // Register a callback invoked whenever the opener broadcasts a new state.
     // The callback runs inside poll() — keep it short.
     static void onStateChange(GDOStateCallback cb) { _stateCallback = cb; }
+
+    // Last obstruction flag decoded from a STATUS packet (byte1 bit 6,
+    // inverted: raw 0 = obstructed).  true = obstruction present.
+    static bool getObstruction()                 { return _obstruction; }
+
+    // Last light / remote-lockout states from a STATUS packet (byte2 bits 1/0).
+    // Only meaningful once lastStateTimestamp() != 0 (first status received).
+    static bool getLightOn()                     { return _lightOn; }
+    static bool getLocked()                      { return _locked; }
+
+    // Millisecond timestamp of the last STATUS packet decoded — updated on
+    // every status report, even when the state is unchanged.  Use together
+    // with requestStatus() to judge whether getDoorState() is fresh.
+    static unsigned long lastStateTimestamp()    { return _lastStateTime; }
 
     // Millisecond timestamp of the last byte received — useful for bus-idle
     // detection from outside this class.
@@ -132,20 +185,35 @@ public:
     // Print a one-line running stats summary to Serial.
     static void printStats();
 
-    // Arm auto-TX for the next learn-mode window (opener broadcasts state=6).
-    // Type 't' in the serial monitor.  Safe to call before or during the learn
-    // window — fires exactly once when state=6 is first detected after arming.
+    // Arm auto-TX for the next learn-mode window (STATUS byte2 bit5 = Learn
+    // LED lit).  Type 't' in the serial monitor.  Safe to call before or
+    // during the learn window — fires exactly once when learn mode is first
+    // detected after arming.
+    // NOTE: enrolment is NOT required for wireline control (see sendDoorAction)
+    // — this remains only as a diagnostic/compatibility tool.
     static void armLearnEnroll();
 
 private:
     // ── Internal helpers ──────────────────────────────────────────────────────
+    static void processRxByte(uint8_t b);            // Feed one byte through the packet assembler
     static void processPacket(const uint8_t *pkt);   // Decode a complete packet
+    static void handleDecoded(uint32_t rolling, uint64_t device_id,
+                              uint16_t command, uint32_t payload); // Act on a decoded packet
+    static bool txPacket(uint16_t command, uint32_t payload,
+                         bool incrementRolling);      // Encode + preamble + transmit one packet
+    static void waitBusIdle();                        // Wait for RX_GAP_MS of bus silence (drains RX)
+    static void sendPreamble();                       // ~1.3 ms bus-LOW frame preamble before TX
     static void loadIdentity();                       // Load NVS → _rolling, _deviceId
     static void saveRolling();                        // Persist _rolling to NVS
+    static void clearLearnArmNVS();                   // Clear persistent learn-arm flag
     static void printHex(const uint8_t *buf, size_t len); // Hex dump to Serial
 
     // ── State ─────────────────────────────────────────────────────────────────
     static GDODoorState     _doorState;
+    static bool             _obstruction;     // last obstruction flag from status packet
+    static bool             _lightOn;         // last light state from status packet
+    static bool             _locked;          // last remote-lockout state from status packet
+    static unsigned long    _lastStateTime;   // millis() of last decoded status packet
     static GDOStateCallback _stateCallback;
 
     // ── Security+ 2.0 identity (persisted in NVS partition) ──────────────────
@@ -156,6 +224,7 @@ private:
     static uint8_t          _rxBuf[GDO_PACKET_LEN];
     static size_t           _rxIdx;
     static unsigned long    _lastRxTime;
+    static uint8_t          _txPin;     // cached for the GPIO-matrix preamble
 
     // ── Learn-mode auto-enrolment ─────────────────────────────────────────────
     static bool             _learnEnrollArmed;  // set by armLearnEnroll()
@@ -174,4 +243,7 @@ private:
 
     // Maximum time (ms) to wait for bus idle before forcing a TX.
     static const unsigned long TX_WAIT_MS = 500;
+
+    // Gap (ms) between the door-action PRESS and RELEASE packets (ratgdo: 150).
+    static const unsigned long DOOR_RELEASE_DELAY_MS = 150;
 };

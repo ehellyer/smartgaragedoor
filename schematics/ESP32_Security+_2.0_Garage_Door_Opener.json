@@ -29,7 +29,7 @@
         "color": "#000000",
         "distance": 40
       },
-      "color": "#5e30eb"
+      "color": "#000000"
     },
     {
       "id": 2,
@@ -373,7 +373,17 @@
       "value": "",
       "mirrored": false,
       "width": 64,
-      "height": 64
+      "height": 64,
+      "textStyle": {
+        "position": "top",
+        "fontSize": 14,
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "strike": false,
+        "color": "#000000",
+        "distance": 36
+      }
     },
     {
       "id": 21,
@@ -578,6 +588,82 @@
       "mirrored": false,
       "width": 32,
       "height": 32
+    },
+    {
+      "id": 35,
+      "type": "Resistors",
+      "label": "Resistor",
+      "icon": "/icons/Resistor.svg",
+      "unit": "",
+      "x": 736,
+      "y": 464,
+      "rotation": 90,
+      "value": "100KΩ",
+      "mirrored": false,
+      "width": 64,
+      "height": 64,
+      "textStyle": {
+        "position": "top",
+        "fontSize": 14,
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "strike": false,
+        "color": "#000000",
+        "distance": 32
+      }
+    },
+    {
+      "id": 36,
+      "type": "Utilities",
+      "label": "Text Box",
+      "icon": "/icons/Text Box.svg",
+      "unit": "",
+      "x": 304,
+      "y": 544,
+      "rotation": 0,
+      "value": "Note: Schematic tool limitations",
+      "mirrored": false,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "id": 38,
+      "type": "Utilities",
+      "label": "Text Box",
+      "icon": "/icons/Text Box.svg",
+      "unit": "",
+      "x": 416,
+      "y": 560,
+      "rotation": 0,
+      "value": "GPIO pin assignments will cary in actual implementation.",
+      "mirrored": false,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "id": 39,
+      "type": "Utilities",
+      "label": "Text Box",
+      "icon": "/icons/Text Box.svg",
+      "unit": "",
+      "x": 384,
+      "y": 576,
+      "rotation": 0,
+      "value": "The reed switch state shown is not a starting condition.",
+      "mirrored": true,
+      "width": 64,
+      "height": 64,
+      "textStyle": {
+        "position": "left",
+        "fontSize": 14,
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "strike": false,
+        "color": "#000000",
+        "distance": 34
+      }
     }
   ],
   "wires": [
@@ -1671,6 +1757,50 @@
         },
         "end": {
           "componentId": 32,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 178,
+      "points": [
+        768,
+        464,
+        768,
+        448
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 35,
+          "connIdx": 0
+        },
+        "end": {
+          "componentId": 11,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 179,
+      "points": [
+        768,
+        528,
+        768,
+        544
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 35,
           "connIdx": 1
         }
       }

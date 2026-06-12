@@ -1,5 +1,5 @@
 // =============================================================================
-//  Smart Garage Door Controller  v1.1
+//  Smart Garage Door Controller  v1.3.0
 //  ESP32 · Security+ 2.0 Wireline Bus · Apple HomeKit (HomeSpan)
 //
 //  Target opener:   Craftsman 045DCT  (LiftMaster/Chamberlain Security+ 2.0)
@@ -22,6 +22,9 @@
 //                HIGH = magnet present = door closed; LOW = magnet absent)
 //    GPIO 26  →  Reed switch SW2 — OPEN   end-stop  (NC switch + INPUT_PULLUP;
 //                HIGH = magnet present = door open;   LOW = magnet absent)
+//    GPIO 34  →  Obstruction sensor (black) wire via 10K/10K divider to GND
+//                (input-only; clear = LOW pulse every ~7 ms, obstructed = steady
+//                HIGH, asleep = steady LOW)
 //
 //  First boot:
 //    1. Flash via USB (PlatformIO: click Upload or press Ctrl+Alt+U).
@@ -35,6 +38,8 @@
 #include <WiFi.h>
 #include "GDOBus.h"
 #include "GarageDoorService.h"
+#include "LightService.h"
+#include "LockService.h"
 #include "HomeSpan.h"
 
 
@@ -43,6 +48,10 @@ static constexpr uint8_t GDO_TX_PIN = 21; // AO3400A gate  (open-drain pull-down
 static constexpr uint8_t GDO_RX_PIN = 22; // 2N7000  drain (level-shifted, inverted 12V→3.3V)
 static constexpr uint8_t REED_CLOSED_PIN = 25; // SW1 — closed end-stop (HIGH = door at closed position)
 static constexpr uint8_t REED_OPEN_PIN = 26; // SW2 — open end-stop (HIGH = door at open position)
+static constexpr uint8_t OBST_PIN = 34;      // Safety-sensor (black) wire via 10K/10K divider
+                                             // (input-only pin; divider midpoint → GPIO34,
+                                             //  bottom leg → GND.  Measured: 5.95 V line →
+                                             //  2.95 V at the pin — within spec.)
 static constexpr uint8_t LED_PIN = 2;        // On-board LED (GPIO2)
 
 // ── Constant Definitions ──────────────────────────────────────────────────────────
@@ -86,16 +95,21 @@ void setup()
     pinMode(LED_PIN, OUTPUT);
 
     delay(200);
-    Serial.println(F("\n\n=== Smart Garage Door Controller v1.0.0 ==="));
+    Serial.println(F("\n\n=== Smart Garage Door Controller v1.3.0 ==="));
 
     // Initialise the Security+ 2.0 serial bus driver.
     GDOBus::begin(GDO_TX_PIN, GDO_RX_PIN);
 
     bool busOK = GDOBus::verify(1000);
-    if (!busOK) 
+    if (!busOK)
     {
         Serial.println(F("[GDO] WARNING: Bus verify failed — check wiring"));
     }
+
+    // Seed the cached door state.  The opener does NOT broadcast status on its
+    // own (only on request or when its state changes), so query it once at
+    // boot; the 0x081 reply is decoded by GDOBus::poll() in the main loop.
+    GDOBus::requestStatus();
 
 
     // Configure HomeSpan for native HomeKit (no hub needed).
@@ -114,9 +128,11 @@ void setup()
             new Characteristic::Manufacturer("Hellyer Multimedia Group");
             new Characteristic::Model("HMG-GDO-001");
             new Characteristic::SerialNumber("GDO-001");
-            new Characteristic::FirmwareRevision("1.0.0");
+            new Characteristic::FirmwareRevision("1.3.0");
 
-    new GarageDoorService(REED_CLOSED_PIN, REED_OPEN_PIN);
+    new GarageDoorService(REED_CLOSED_PIN, REED_OPEN_PIN, OBST_PIN);
+    new LightService();   // Opener work light  (LIGHT 0x281)
+    new LockService();    // Remote lockout     (LOCK  0x18C)
 }
 
 // ── Main Loop ────────────────────────────────────────────────────────────────
@@ -135,8 +151,8 @@ void loop()
   //   2. Immediately type 'R' + Enter  →  device reboots
   //   3. While rebooting, press the Learn button on the opener
   //      (or press Learn just before step 2 — window is 30 s)
-  //   4. During verify() (~t+2.9 s) state=6 is detected and TX fires
-  //      automatically — well before the wall unit can respond (~t+4.8 s)
+  //   4. During verify(), early in boot, state=6 is detected and TX fires
+  //      automatically — before the wall unit can respond to the learn window
   //   5. Listen for the opener's enrolment beep/click
   //
   // If the ESP32 is already running (loop() active) you can also just:
