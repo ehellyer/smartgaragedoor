@@ -129,7 +129,7 @@ Both switches are normally-closed (NC): the contact shorts to GND when the magne
 ```
 3.3 V ──[R4 10kΩ]───┬── GPIO25  (CLOSED end-stop)
                     │
-                   [SW1 — bottom of door frame]
+                   [SW1 — fully-closed position on overhead track]
                     │
                    GND
 
