@@ -38,8 +38,8 @@ This project adds native Apple HomeKit support to a **Craftsman 045DCT** (2015, 
 | R1   | 10 kΩ resistor                | 1/4 W          | ±5%                          | 2N7000 gate series resistor from RED        |
 | R2   | 10 kΩ resistor                | 1/4 W          | ±5%                          | 2N7000 drain pull-up to 3.3 V               |
 | R3   | 10 kΩ resistor                | 1/4 W          | ±5%                          | AO3400A gate drive from GPIO21              |
-| R4   | 10 kΩ resistor                | 1/4 W          | ±5%                          | SW1 (CLOSED reed) pull-up to 3.3 V         |
-| R5   | 10 kΩ resistor                | 1/4 W          | ±5%                          | SW2 (OPEN reed) pull-up to 3.3 V           |
+| R4   | 10 kΩ resistor                | 1/4 W          | ±5%                          | SW1 (CLOSED reed) pull-up to 3.3 V          |
+| R5   | 10 kΩ resistor                | 1/4 W          | ±5%                          | SW2 (OPEN reed) pull-up to 3.3 V            |
 | R6   | 10 kΩ resistor                | 1/4 W          | ±5%                          | Obstruction divider — top (BLACK wire side) |
 | R7   | 10 kΩ resistor                | 1/4 W          | ±5%                          | Obstruction divider — bottom (GND side)     |
 | R8   | 100 kΩ resistor               | 1/4 W          | ±5%                          | AO3400A gate → GND pull-down; holds the bus released while the ESP32 is in reset/boot. 

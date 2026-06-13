@@ -636,7 +636,7 @@
       "x": 416,
       "y": 560,
       "rotation": 0,
-      "value": "GPIO pin assignments will cary in actual implementation.",
+      "value": "GPIO pin assignments will vary in actual implementation.",
       "mirrored": false,
       "width": 64,
       "height": 64
