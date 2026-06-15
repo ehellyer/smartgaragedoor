@@ -133,7 +133,7 @@
       "label": "DC Voltage Source",
       "icon": "/icons/DC Voltage Source.svg",
       "unit": "",
-      "x": 112,
+      "x": 96,
       "y": 464,
       "rotation": 0,
       "value": "5V DC",
@@ -157,7 +157,7 @@
       "label": "General Ground",
       "icon": "/icons/General Ground.svg",
       "unit": "",
-      "x": 112,
+      "x": 96,
       "y": 560,
       "rotation": 0,
       "value": "",
@@ -621,11 +621,21 @@
       "unit": "",
       "x": 304,
       "y": 544,
-      "rotation": 0,
+      "rotation": 90,
       "value": "Note: Schematic tool limitations",
       "mirrored": false,
       "width": 64,
-      "height": 64
+      "height": 64,
+      "textStyle": {
+        "position": "top",
+        "fontSize": 14,
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "strike": false,
+        "color": "#000000",
+        "distance": 8
+      }
     },
     {
       "id": 38,
@@ -663,6 +673,30 @@
         "strike": false,
         "color": "#000000",
         "distance": 34
+      }
+    },
+    {
+      "id": 41,
+      "type": "Capacitors",
+      "label": "Polarized Capacitor",
+      "icon": "/icons/Polarized Capacitor.svg",
+      "unit": "µF",
+      "x": 160,
+      "y": 464,
+      "rotation": 90,
+      "value": "100",
+      "mirrored": false,
+      "width": 64,
+      "height": 64,
+      "textStyle": {
+        "position": "top",
+        "fontSize": 14,
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "strike": false,
+        "color": "#000000",
+        "distance": 47
       }
     }
   ],
@@ -790,9 +824,9 @@
     {
       "id": 24,
       "points": [
-        144,
+        128,
         544,
-        144,
+        128,
         560
       ],
       "style": {
@@ -810,9 +844,9 @@
     {
       "id": 23,
       "points": [
-        144,
+        128,
         528,
-        144,
+        128,
         544
       ],
       "style": {
@@ -858,7 +892,7 @@
         320,
         944,
         544,
-        144,
+        128,
         544
       ],
       "style": {
@@ -1184,9 +1218,9 @@
     {
       "id": 89,
       "points": [
-        144,
+        128,
         464,
-        144,
+        128,
         448,
         224,
         448
@@ -1696,7 +1730,7 @@
         48,
         48,
         544,
-        144,
+        128,
         544
       ],
       "style": {
@@ -1801,6 +1835,66 @@
       "meta": {
         "start": {
           "componentId": 35,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 180,
+      "points": [
+        192,
+        464,
+        192,
+        448
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 41,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 181,
+      "points": [
+        192,
+        464,
+        192,
+        480
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 41,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 182,
+      "points": [
+        192,
+        528,
+        192,
+        544
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 41,
           "connIdx": 1
         }
       }
