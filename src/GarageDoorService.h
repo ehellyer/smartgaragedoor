@@ -59,6 +59,7 @@
 #pragma once
 #include "HomeSpan.h"
 #include "GDOBus.h"
+#include "DuaLogger.h"
 
 struct GarageDoorService : Service::GarageDoorOpener {
 
@@ -439,38 +440,23 @@ private:
     }
 
     // ==========================================================================
-    // NC switches + pull-ups: HIGH = magnet present = door at that end-stop
-    // | SW1 (GPIO25) | SW2 (GPIO26) | Door state                                    |
-    // | CLD end-stop | OPN end stop |                                               |
-    // |--------------|--------------|-----------------------------------------------|
-    // | HIGH         | LOW          | **Closed**                                    |
-    // | LOW          | HIGH         | **Open**                                      |
-    // | LOW          | LOW          | **In between** — Opening, Closing, or Stopped |
-    // | HIGH         | HIGH         | Error (impossible mechanically)               |
-    //  resolveHardwareState()
-    //  Translate the two reed switch readings into a HAP door state integer.
-    //  Called only at construction time for the initial state.
+    //  resolveHardwareState()  —  Translate the two reed switch readings into a
+    //  HAP door state integer.  Called only at construction time.
     // ==========================================================================
     int resolveHardwareState() {
         if (!reedClosedActive && reedOpenActive) return 0;   // Open
         if (reedClosedActive && !reedOpenActive) return 1;   // Closed
         if (!reedClosedActive && !reedOpenActive) return 4;  // In-between → Stopped
         // Both active simultaneously is an error; default to Stopped
-        Serial.println("[Reed] WARNING: Both reed switches active — check wiring!   Defaulting to Stopped state.");
+        Log.println("[Reed] WARNING: Both reed switches active — check wiring!   Defaulting to Stopped state.");
         return 4;
     }
 
     // ==========================================================================
-    //  debounce()
-    //  Returns true if the raw reading has been stable for DEBOUNCE_MS and
-    //  differs from the last accepted state.
+    //  debounce()  —  Returns true once rawNow has held a value different from
+    //  `accepted` continuously for DEBOUNCE_MS, signalling a confirmed change.
     //  Updates changeTime in-place.
     // ==========================================================================
-    // Compare rawNow against the last *accepted* (debounced) state.
-    // Returns true once rawNow has held a value different from `accepted`
-    // continuously for DEBOUNCE_MS, signalling a confirmed state change.
-    // (Previous version compared against the last *raw* reading, which reset
-    //  the timer every other iteration and prevented the window from filling.)
     bool debounce(bool rawNow, bool accepted, unsigned long &changeTime) {
         if (rawNow == accepted) {
             changeTime = 0;   // Steady at current accepted value — nothing pending

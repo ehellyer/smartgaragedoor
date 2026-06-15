@@ -13,6 +13,7 @@
 #pragma once
 #include "HomeSpan.h"
 #include "GDOBus.h"
+#include "DuaLogger.h"
 
 struct LockService : Service::LockMechanism {
 
@@ -33,7 +34,7 @@ struct LockService : Service::LockMechanism {
     // HomeKit changed the lock target
     boolean update() override {
         bool lock = lockTarget->getNewVal() == 1;
-        LOG1("[HAP] Remote lockout → %s\n", lock ? "LOCKED" : "unlocked");
+        Log.printf("[HAP] Remote lockout → %s\n", lock ? "LOCKED" : "unlocked");
         GDOBus::sendLockAction(lock);
         confirmAt = millis() + CONFIRM_DELAY_MS;
         return true;
@@ -50,7 +51,7 @@ struct LockService : Service::LockMechanism {
         if (GDOBus::lastStateTimestamp() != 0) {
             int actual = GDOBus::getLocked() ? 1 : 0;
             if (lockCurrent->getVal() != actual) {
-                LOG1("[Bus] Remote lockout is %s\n", actual ? "LOCKED" : "unlocked");
+                Log.printf("[Bus] Remote lockout is %s\n", actual ? "LOCKED" : "unlocked");
                 lockCurrent->setVal(actual);
             }
             // Keep the target aligned when the state was changed externally

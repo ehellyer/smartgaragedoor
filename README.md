@@ -59,6 +59,12 @@ This project adds native Apple HomeKit support to a **Craftsman 045DCT** (2015, 
 
 ---
 
+## Schematic
+
+![](/schematics/ESP32_Security+_2.0_Garage_Door_Opener.png)
+
+---
+
 ## Circuit Description
 
 The full schematic is in [`schematics/ESP32_Security+_2.0_Garage_Door_Opener.png`](schematics/ESP32_Security+_2.0_Garage_Door_Opener.png) (source JSON alongside it).  Note: the schematic uses a generic dev-board symbol, so its pin labels (D13 etc.) are representational — the actual GPIO assignments are listed below.
@@ -79,9 +85,9 @@ The serial line idles at +12 V.  During transmission any device on the bus pulls
 
 ```
 RED ──[R1 10kΩ]──┬── GATE (Q1 / 2N7000)
-                  │   SOURCE → GND
-                  │   DRAIN ──[R2 10kΩ]── 3.3 V
-                  │         └─────────── GPIO22 (ESP32 UART2 RX)
+                 │   SOURCE → GND
+                 │   DRAIN ──[R2 10kΩ]── 3.3 V
+                 │         └─────────── GPIO22 (ESP32 UART2 RX)
 ```
 
 - Bus HIGH (12 V): Q1 gate driven → MOSFET ON → GPIO22 pulled LOW
@@ -91,11 +97,11 @@ RED ──[R1 10kΩ]──┬── GATE (Q1 / 2N7000)
 ### TX sub-circuit (writing to the bus)
 
 ```
-GPIO21 (ESP32 UART2 TX) ──[R3 10kΩ]──┬── GATE (Q2 / AO3400A)
-                                      │     SOURCE → GND
-                                   [R8 100kΩ]  DRAIN ─────────── RED
-                                      │
-                                     GND
+GPIO21 (ESP32 UART2 TX) ──[R3 10kΩ]──┬─────── GATE (Q2 / AO3400A)
+                                     │        SOURCE → GND
+                                  [R8 100kΩ]  DRAIN ─────────── RED
+                                     │
+                                    GND
 ```
 
 - GPIO21 HIGH: Q2 ON → pulls RED to GND (a data bit, or the frame preamble)
@@ -114,8 +120,8 @@ GPIO21 (ESP32 UART2 TX) ──[R3 10kΩ]──┬── GATE (Q2 / AO3400A)
 
 ```
 BLACK ──[R6 10kΩ]──┬──[R7 10kΩ]── GND
-                    │
-                   GPIO34 (input-only)
+                   │
+                  GPIO34 (input-only)
 ```
 
 The opener's safety-beam line has three states (ratgdo research): **clear** = HIGH with a brief LOW pulse every ~7 ms, **obstructed** = steady HIGH, **asleep** = steady LOW.  The divider halves the line voltage for the ESP32; a falling-edge interrupt counts the pulses and a 50 ms window classifier decides the state.  Obstruction is only reported after pulses have been seen at least once since boot, so an unconnected wire can never raise a false alarm (R7 parks the pin LOW = "asleep").
@@ -309,6 +315,13 @@ Block the safety beam and `[Obst] Obstruction → DETECTED` should appear within
 - **Openings counter:** `GET_OPENINGS (0x48B)` returns the lifetime door-cycle count
 - **Power from the opener:** MP1584 12 V→5 V buck from RED to VIN eliminates the USB cable
 - **PCB:** the circuit maps to a small two-layer board; the schematic JSON is the reference netlist
+
+---
+
+## Photos
+
+![](/projectphotos/Breadbaord_Mounted.png)
+![](/projectphotos/Breadboard1.png)
 
 ---
 

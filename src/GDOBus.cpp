@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "GDOBus.h"
+#include "DuaLogger.h"
 #include "secplus.h"        // argilo/secplus  — GPL-3.0
 #include <Preferences.h>    // ESP32 NVS (non-volatile storage)
 #include <esp_random.h>     // Hardware RNG
@@ -61,7 +62,7 @@ static const char *NVS_LEARN_ARM  = "learnArm"; // persistent enrol-arm flag
 // Call immediately before any [GDO] log line.
 static void ts() {
     uint32_t m = millis();
-    Serial.printf("[%02u:%02u.%03u] ",
+    Log.printf("[%02u:%02u.%03u] ",
                   (unsigned)(m / 60000UL) % 100,
                   (unsigned)(m / 1000UL)  % 60,
                   (unsigned)(m            % 1000UL));
@@ -95,13 +96,13 @@ void GDOBus::begin(uint8_t tx_pin, uint8_t rx_pin) {
     _statDecodeErr = 0;
     _statTxCmds    = 0;
 
-    ts(); Serial.println(F("[GDO] ── Bus Initialised ──────────────────────────────────"));
-    ts(); Serial.printf( "[GDO]   UART         : Serial2  %d baud  8N1  inverted\n", GDO_BAUD);
-    ts(); Serial.printf( "[GDO]   TX pin       : GPIO%d  (AO3400A gate)\n",  tx_pin);
-    ts(); Serial.printf( "[GDO]   RX pin       : GPIO%d  (2N7000 drain)\n",  rx_pin);
-    ts(); Serial.printf( "[GDO]   Device ID    : 0x%010llX\n", _deviceId);
-    ts(); Serial.printf( "[GDO]   Rolling code : 0x%07X\n",    _rolling);
-    Serial.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
+    ts(); Log.println(F("[GDO] ── Bus Initialised ──────────────────────────────────"));
+    ts(); Log.printf( "[GDO]   UART         : Serial2  %d baud  8N1  inverted\n", GDO_BAUD);
+    ts(); Log.printf( "[GDO]   TX pin       : GPIO%d  (AO3400A gate)\n",  tx_pin);
+    ts(); Log.printf( "[GDO]   RX pin       : GPIO%d  (2N7000 drain)\n",  rx_pin);
+    ts(); Log.printf( "[GDO]   Device ID    : 0x%010llX\n", _deviceId);
+    ts(); Log.printf( "[GDO]   Rolling code : 0x%07X\n",    _rolling);
+    Log.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
 }
 
 // =============================================================================
@@ -110,9 +111,9 @@ void GDOBus::begin(uint8_t tx_pin, uint8_t rx_pin) {
 //               Returns true if at least one packet decoded successfully.
 // =============================================================================
 bool GDOBus::verify(uint32_t timeoutMs) {
-    Serial.println(F("[GDO] ── Bus Verification ────────────────────────────────"));
-    Serial.printf( "[GDO]   Listening for %lu ms ...\n", timeoutMs);
-    Serial.println(F("[GDO]   (Press the wall button to send a packet immediately)"));
+    Log.println(F("[GDO] ── Bus Verification ────────────────────────────────"));
+    Log.printf( "[GDO]   Listening for %lu ms ...\n", timeoutMs);
+    Log.println(F("[GDO]   (Press the wall button to send a packet immediately)"));
 
     uint32_t rawBytes    = 0;
     uint32_t syncFound   = 0;
@@ -157,7 +158,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
                 if (decode_wireline_command(buf, &rolling, &device_id, &command, &payload) < 0) {
                     decodeErr++;
                     _statDecodeErr++;
-                    ts(); Serial.print(F("[GDO]   Decode error — raw bytes: "));
+                    ts(); Log.print(F("[GDO]   Decode error — raw bytes: "));
                     printHex(buf, GDO_PACKET_LEN);
                 } else {
                     decodeOK++;
@@ -171,7 +172,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
                     // before the wall unit responds to the learn window.
                     if (_pendingLearnTX) {
                         _pendingLearnTX = false;
-                        ts(); Serial.println(F("[GDO] *** Firing enrolment TX during verify() ***"));
+                        ts(); Log.println(F("[GDO] *** Firing enrolment TX during verify() ***"));
                         sendDoorCommand();
                     }
                 }
@@ -181,36 +182,36 @@ bool GDOBus::verify(uint32_t timeoutMs) {
     }
 
     // ── Diagnostic report ────────────────────────────────────────────────────
-    ts(); Serial.println(F("[GDO] ── Verification Report ────────────────────────────"));
-    Serial.printf( "[GDO]   Raw bytes received  : %lu\n", rawBytes);
-    Serial.printf( "[GDO]   Sync headers found  : %lu\n", syncFound);
-    Serial.printf( "[GDO]   Complete packets    : %lu\n", fullPackets);
-    Serial.printf( "[GDO]   Decoded OK          : %lu\n", decodeOK);
-    Serial.printf( "[GDO]   Decode errors       : %lu\n", decodeErr);
+    ts(); Log.println(F("[GDO] ── Verification Report ────────────────────────────"));
+    Log.printf( "[GDO]   Raw bytes received  : %lu\n", rawBytes);
+    Log.printf( "[GDO]   Sync headers found  : %lu\n", syncFound);
+    Log.printf( "[GDO]   Complete packets    : %lu\n", fullPackets);
+    Log.printf( "[GDO]   Decoded OK          : %lu\n", decodeOK);
+    Log.printf( "[GDO]   Decode errors       : %lu\n", decodeErr);
 
     // Diagnosis
     if (rawBytes == 0) {
-        Serial.println(F("[GDO]   >> No bytes received — check wiring:"));
-        Serial.println(F("[GDO]      - RED/WHITE terminals connected?"));
-        Serial.println(F("[GDO]      - Q1 (2N7000) gate/drain/source orientation?"));
-        Serial.println(F("[GDO]      - R2 pull-up to 3.3V on drain?"));
-        Serial.println(F("[GDO]      - Correct RX pin in main.cpp?"));
+        Log.println(F("[GDO]   >> No bytes received — check wiring:"));
+        Log.println(F("[GDO]      - RED/WHITE terminals connected?"));
+        Log.println(F("[GDO]      - Q1 (2N7000) gate/drain/source orientation?"));
+        Log.println(F("[GDO]      - R2 pull-up to 3.3V on drain?"));
+        Log.println(F("[GDO]      - Correct RX pin in main.cpp?"));
     } else if (syncFound == 0) {
-        Serial.println(F("[GDO]   >> Bytes arriving but no valid sync (0x55 0x01 0x00)"));
-        Serial.println(F("[GDO]      - Wrong baud rate? Try GDO_BAUD 4800 in GDOBus.h"));
-        Serial.println(F("[GDO]      - UART invert=true present in begin()?"));
+        Log.println(F("[GDO]   >> Bytes arriving but no valid sync (0x55 0x01 0x00)"));
+        Log.println(F("[GDO]      - Wrong baud rate? Try GDO_BAUD 4800 in GDOBus.h"));
+        Log.println(F("[GDO]      - UART invert=true present in begin()?"));
     } else if (decodeOK == 0 && fullPackets > 0) {
-        Serial.println(F("[GDO]   >> Packets assembled but decode failing"));
-        Serial.println(F("[GDO]      - Protocol version mismatch?"));
-        Serial.println(F("[GDO]      - Check raw bytes above against secplus.h"));
+        Log.println(F("[GDO]   >> Packets assembled but decode failing"));
+        Log.println(F("[GDO]      - Protocol version mismatch?"));
+        Log.println(F("[GDO]      - Check raw bytes above against secplus.h"));
     } else if (decodeOK == 0) {
-        Serial.println(F("[GDO]   >> Some bytes received but no complete packet yet"));
-        Serial.println(F("[GDO]      - Opener may be idle — press wall button and re-verify"));
+        Log.println(F("[GDO]   >> Some bytes received but no complete packet yet"));
+        Log.println(F("[GDO]      - Opener may be idle — press wall button and re-verify"));
     }
 
     bool passed = (decodeOK > 0);
-    ts(); Serial.printf("[GDO]   Result : %s\n", passed ? "PASS" : "FAIL");
-    Serial.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
+    ts(); Log.printf("[GDO]   Result : %s\n", passed ? "PASS" : "FAIL");
+    Log.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
 
     // Seed the running byte counter with what we saw during verify.
     // (Packet and decode-error counters were already incremented inline.)
@@ -223,7 +224,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
 //  printStats()  —  One-line running stats summary.
 // =============================================================================
 void GDOBus::printStats() {
-    Serial.printf("[GDO] Stats  rx=%lu pkts  %lu bytes  %lu decodeErr  tx=%lu cmds\n",
+    Log.printf("[GDO] Stats  rx=%lu pkts  %lu bytes  %lu decodeErr  tx=%lu cmds\n",
                   _statPacketsRx, _statBytesRx, _statDecodeErr, _statTxCmds);
 }
 
@@ -254,7 +255,7 @@ void GDOBus::loadIdentity() {
     if (prefs.getBool(NVS_LEARN_ARM, false)) {
         _learnEnrollArmed = true;
         prefs.putBool(NVS_LEARN_ARM, false);    // consume — arm survives at most one reboot
-        ts(); Serial.println(F("[GDO] Persistent learn-enrol arm restored from NVS"));
+        ts(); Log.println(F("[GDO] Persistent learn-enrol arm restored from NVS"));
     }
 
     if (_deviceId == 0) {
@@ -267,7 +268,7 @@ void GDOBus::loadIdentity() {
         prefs.putULong64(NVS_DEVICE_ID, _deviceId);
         prefs.putULong(NVS_ROLLING, _rolling);
 
-        ts(); Serial.println(F("[GDO] First boot — new identity generated and stored in NVS"));
+        ts(); Log.println(F("[GDO] First boot — new identity generated and stored in NVS"));
     }
 
     prefs.end();
@@ -305,9 +306,9 @@ void GDOBus::clearLearnArmNVS() {
 // =============================================================================
 void GDOBus::printHex(const uint8_t *buf, size_t len) {
     for (size_t i = 0; i < len; i++) {
-        Serial.printf("%02X ", buf[i]);
+        Log.printf("%02X ", buf[i]);
     }
-    Serial.println();
+    Log.println();
 }
 
 // =============================================================================
@@ -323,7 +324,7 @@ void GDOBus::processRxByte(uint8_t b) {
     // Inter-packet gap → discard partial buffer
     if (_rxIdx > 0 && (now - _lastRxTime) > RX_GAP_MS) {
 #if GDO_DEBUG_LEVEL >= 2
-        ts(); Serial.printf("[GDO] RX gap reset (had %u bytes)\n", (unsigned)_rxIdx);
+        ts(); Log.printf("[GDO] RX gap reset (had %u bytes)\n", (unsigned)_rxIdx);
 #endif
         _rxIdx = 0;
     }
@@ -340,7 +341,7 @@ void GDOBus::processRxByte(uint8_t b) {
 
     if (_rxIdx == GDO_PACKET_LEN) {
 #if GDO_DEBUG_LEVEL >= 2
-        ts(); Serial.print(F("[GDO] RX raw: "));
+        ts(); Log.print(F("[GDO] RX raw: "));
         printHex(_rxBuf, GDO_PACKET_LEN);
 #endif
         processPacket(_rxBuf);
@@ -377,7 +378,7 @@ void GDOBus::processPacket(const uint8_t *pkt) {
 
     if (decode_wireline_command(pkt, &rolling, &device_id, &command, &payload) < 0) {
         _statDecodeErr++;
-        ts(); Serial.print(F("[GDO] RX decode error — raw: "));
+        ts(); Log.print(F("[GDO] RX decode error — raw: "));
         printHex(pkt, GDO_PACKET_LEN);
         return;
     }
@@ -397,13 +398,13 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
     // Ignore the half-duplex echo of our own transmissions
     if (device_id == _deviceId) {
 #if GDO_DEBUG_LEVEL >= 2
-        ts(); Serial.printf("[GDO] RX  (own echo)  cmd=0x%03X\n", command);
+        ts(); Log.printf("[GDO] RX  (own echo)  cmd=0x%03X\n", command);
 #endif
         return;
     }
 
 #if GDO_DEBUG_LEVEL >= 1
-    ts(); Serial.printf("[GDO] RX  cmd=0x%03X  dev=0x%010llX  roll=0x%07X  payload=0x%05X\n",
+    ts(); Log.printf("[GDO] RX  cmd=0x%03X  dev=0x%010llX  roll=0x%07X  payload=0x%05X\n",
                         command, device_id, rolling, payload);
 #endif
 
@@ -448,7 +449,7 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
 #if GDO_DEBUG_LEVEL >= 1
         {
             static const char *doorNames[] = {"?","OPEN","CLOSED","STOPPED","OPENING","CLOSING"};
-            ts(); Serial.printf("[GDO]     door=%-7s  light=%-3s  lock=%-8s  obstruction=%-3s  learn=%s\n",
+            ts(); Log.printf("[GDO]     door=%-7s  light=%-3s  lock=%-8s  obstruction=%-3s  learn=%s\n",
                                nibble <= 5 ? doorNames[nibble] : "?",
                                _lightOn ? "ON"      : "off",
                                _locked  ? "LOCKED"  : "unlocked",
@@ -461,12 +462,12 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
         if (nowInLearn && !_inLearnMode) {
             // Just entered learn mode
             _inLearnMode = true;
-            ts(); Serial.println(F("[GDO] *** Learn mode ACTIVE — type 't' to enrol this device ***"));
+            ts(); Log.println(F("[GDO] *** Learn mode ACTIVE — type 't' to enrol this device ***"));
             if (_learnEnrollArmed) {
                 _learnEnrollArmed = false;
                 clearLearnArmNVS();         // arm consumed — never leave a stale flag for next boot
                 _pendingLearnTX   = true;   // executed in poll() after byte loop
-                ts(); Serial.println(F("[GDO]     (auto-enrol armed — TX queued)"));
+                ts(); Log.println(F("[GDO]     (auto-enrol armed — TX queued)"));
             }
         } else if (!nowInLearn && _inLearnMode) {
             // Learn window closed
@@ -475,16 +476,16 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
                 // Window closed with the arm still set — expire it (RAM + NVS)
                 _learnEnrollArmed = false;
                 clearLearnArmNVS();
-                ts(); Serial.println(F("[GDO] Learn mode ended (enrol TX was never sent)"));
+                ts(); Log.println(F("[GDO] Learn mode ended (enrol TX was never sent)"));
             } else {
-                ts(); Serial.println(F("[GDO] Learn mode ended"));
+                ts(); Log.println(F("[GDO] Learn mode ended"));
             }
         }
 
         if (newState != GDODoorState::UNKNOWN && newState != _doorState) {
             _doorState = newState;
             static const char *names[] = {"OPEN","CLOSED","OPENING","CLOSING","STOPPED"};
-            ts(); Serial.printf("[GDO] Door state → %s\n", names[(int)newState]);
+            ts(); Log.printf("[GDO] Door state → %s\n", names[(int)newState]);
             if (_stateCallback) _stateCallback(newState);
         }
     }
@@ -509,7 +510,7 @@ void GDOBus::armLearnEnroll() {
         // Already in learn mode — queue the TX immediately.  The arm is
         // consumed on the spot, so nothing is persisted to NVS.
         _pendingLearnTX = true;
-        ts(); Serial.println(F("[GDO] Learn mode already active — TX queued"));
+        ts(); Log.println(F("[GDO] Learn mode already active — TX queued"));
         return;
     }
 
@@ -529,9 +530,9 @@ void GDOBus::armLearnEnroll() {
     // Warn if the door is currently in motion — the opener cannot enter Learn mode
     // while moving.  The arm stays set so the TX fires if Learn is pressed later.
     if (_doorState == GDODoorState::OPENING || _doorState == GDODoorState::CLOSING) {
-        ts(); Serial.println(F("[GDO] *** WARNING: Door is in motion — wait for it to stop before pressing Learn ***"));
+        ts(); Log.println(F("[GDO] *** WARNING: Door is in motion — wait for it to stop before pressing Learn ***"));
     }
-    ts(); Serial.println(F("[GDO] Learn-enrol armed (persists across reboot) — press Learn or reboot with Learn active"));
+    ts(); Log.println(F("[GDO] Learn-enrol armed (persists across reboot) — press Learn or reboot with Learn active"));
 }
 
 // =============================================================================
@@ -553,7 +554,7 @@ void GDOBus::waitBusIdle() {
         delay(1);
     }
     if (timedOut) {
-        ts(); Serial.println(F("[GDO] TX WARN: bus busy timeout — transmitting anyway"));
+        ts(); Log.println(F("[GDO] TX WARN: bus busy timeout — transmitting anyway"));
     }
 }
 
@@ -590,7 +591,7 @@ bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling)
     uint8_t pkt[GDO_PACKET_LEN];
 
     if (encode_wireline_command(_rolling, _deviceId, command, payload, pkt) < 0) {
-        ts(); Serial.println(F("[GDO] TX ERROR: encode_wireline_command failed!"));
+        ts(); Log.println(F("[GDO] TX ERROR: encode_wireline_command failed!"));
         return false;
     }
 
@@ -602,11 +603,11 @@ bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling)
     _statTxCmds++;
 
 #if GDO_DEBUG_LEVEL >= 1
-    ts(); Serial.printf("[GDO] TX  cmd=0x%03X  payload=0x%05X  roll=0x%07X\n",
+    ts(); Log.printf("[GDO] TX  cmd=0x%03X  payload=0x%05X  roll=0x%07X\n",
                         command, payload, _rolling);
 #endif
 #if GDO_DEBUG_LEVEL >= 2
-    ts(); Serial.print(F("[GDO] TX raw: "));
+    ts(); Log.print(F("[GDO] TX raw: "));
     printHex(pkt, GDO_PACKET_LEN);
 #endif
 

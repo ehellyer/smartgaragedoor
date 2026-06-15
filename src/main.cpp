@@ -35,13 +35,18 @@
 // =============================================================================
 
 #include <Arduino.h> // Required by PlatformIO — not needed in Arduino IDE .ino files
+#include <ArduinoOTA.h>
 #include <WiFi.h>
+#include "../.credentials/wifi_credentials.h"
+#include "DuaLogger.h"
 #include "GDOBus.h"
 #include "GarageDoorService.h"
 #include "LightService.h"
 #include "LockService.h"
 #include "HomeSpan.h"
 
+
+DuaLogger Log;
 
 // ── Pin Definitions ──────────────────────────────────────────────────────────
 static constexpr uint8_t GDO_TX_PIN = 21; // AO3400A gate  (open-drain pull-down on 12V bus)
@@ -54,36 +59,16 @@ static constexpr uint8_t OBST_PIN = 34;      // Safety-sensor (black) wire via 1
                                              //  2.95 V at the pin — within spec.)
 static constexpr uint8_t LED_PIN = 2;        // On-board LED (GPIO2)
 
+
 // ── Constant Definitions ──────────────────────────────────────────────────────────
 static constexpr uint32_t STATUS_LED_INTERVAL_MS = 500; // ms
 
 // ── Status callback (called by HomeSpan each time status changes)
 void statusUpdate(HS_STATUS status)
 {
-  Serial.printf("\n*** HOMESPAN STATUS CHANGE: %s\n", homeSpan.statusString(status));
+    Log.printf("\n*** HOMESPAN STATUS CHANGE: %s\n", homeSpan.statusString(status));
 }
 
-
-// ── Connection callback (called by HomeSpan each time WiFi
-// connects/reconnects) count == 1 → initial connection; count > 1 reconnection after dropout
-void onConnection(int count)
-{
-  Serial.println(count == 1 ? F("\n=== WiFi Connected ===")
-                            : F("\n=== WiFi Reconnected ==="));
-  Serial.print(F("  SSID       : "));
-  Serial.println(WiFi.SSID());
-  Serial.print(F("  IP Address : "));
-  Serial.println(WiFi.localIP());
-  Serial.print(F("  Gateway    : "));
-  Serial.println(WiFi.gatewayIP());
-  Serial.print(F("  Subnet     : "));
-  Serial.println(WiFi.subnetMask());
-  Serial.print(F("  MAC Address: "));
-  Serial.println(WiFi.macAddress());
-  Serial.print(F("  Signal     : "));
-  Serial.print(WiFi.RSSI());
-  Serial.println(F(" dBm"));
-}
 
 
 
@@ -95,7 +80,7 @@ void setup()
     pinMode(LED_PIN, OUTPUT);
 
     delay(200);
-    Serial.println(F("\n\n=== Smart Garage Door Controller v1.3.0 ==="));
+    Log.println(F("\n\n=== Smart Garage Door Controller v1.3.0 ==="));
 
     // Initialise the Security+ 2.0 serial bus driver.
     GDOBus::begin(GDO_TX_PIN, GDO_RX_PIN);
@@ -103,7 +88,7 @@ void setup()
     bool busOK = GDOBus::verify(1000);
     if (!busOK)
     {
-        Serial.println(F("[GDO] WARNING: Bus verify failed — check wiring"));
+        Log.println(F("[GDO] WARNING: Bus verify failed — check wiring"));
     }
 
     // Seed the cached door state.  The opener does NOT broadcast status on its
@@ -111,13 +96,27 @@ void setup()
     // boot; the 0x081 reply is decoded by GDOBus::poll() in the main loop.
     GDOBus::requestStatus();
 
+    delay(200);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        Log.println(F("Connection Failed! Rebooting..."));
+        delay(5000);
+        ESP.restart();
+    }
+    
+    delay(200);
+
+    Log.begin(23);
 
     // Configure HomeSpan for native HomeKit (no hub needed).
     homeSpan.setLogLevel(1);   // Enable LOG1 output (reed state, HAP events, TX confirmations)
-    homeSpan.begin(Category::GarageDoorOpeners, "Garage Door Opener");
+    homeSpan.setHostNameSuffix("");
+    homeSpan.begin(Category::GarageDoorOpeners, "Garage Door Opener", "esp32-garage-door-opener");
 
-    homeSpan.setConnectionCallback(onConnection); // Print WiFi details on connect/reconnect
-    homeSpan.setStatusCallback(statusUpdate);     // set callback function for status updates (e.g. to control an LED)
+    homeSpan.setStatusCallback(statusUpdate);
     homeSpan.setPairingCode("41414141");
 
     // ── Accessory definition ────────────────────────────────────────────────
@@ -133,6 +132,33 @@ void setup()
     new GarageDoorService(REED_CLOSED_PIN, REED_OPEN_PIN, OBST_PIN);
     new LightService();   // Opener work light  (LIGHT 0x281)
     new LockService();    // Remote lockout     (LOCK  0x18C)
+
+    // Configure ArduinoOTA
+    ArduinoOTA.setHostname("esp32-garage-door-opener"); // Friendly network name
+
+    ArduinoOTA.onStart([]() {
+        String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+        Log.println("Start updating " + type);
+    });
+    ArduinoOTA.onEnd([]() {
+        Log.println(F("\nEnd"));
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Log.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Log.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR)         Log.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR)   Log.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Log.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Log.println("Receive Failed");
+        else if (error == OTA_END_ERROR)     Log.println("End Failed");
+    });
+
+    ArduinoOTA.begin();
+    Log.println(F("\n\nOTA Ready"));
+    Log.print(F("IP address: "));
+    Log.println(WiFi.localIP());
 }
 
 // ── Main Loop ────────────────────────────────────────────────────────────────
@@ -142,6 +168,8 @@ static bool isStatusLEDOn = false;
 
 void loop()
 {
+  ArduinoOTA.handle();
+
   // ── Learn-mode enrol trigger ──────────────────────────────────────────────
   // Type 't' (or 'T') + Enter in the serial monitor to arm auto-enrolment.
   // The arm is also saved to NVS so it survives a reboot.
@@ -158,9 +186,15 @@ void loop()
   // If the ESP32 is already running (loop() active) you can also just:
   //   1. Type 't' + Enter,  2. Press Learn — TX fires within ~20 ms of state=6.
   if (Serial.available() && (Serial.peek() == 't' || Serial.peek() == 'T')) {
-    Serial.read();                                    // consume the 't'
-    while (Serial.available() && Serial.peek() < 32) // eat trailing CR / LF
+    Serial.read();
+    while (Serial.available() && Serial.peek() < 32)
       Serial.read();
+    GDOBus::armLearnEnroll();
+  }
+  if (TelnetStream.available() && (TelnetStream.peek() == 't' || TelnetStream.peek() == 'T')) {
+    TelnetStream.read();
+    while (TelnetStream.available() && TelnetStream.peek() < 32)
+      TelnetStream.read();
     GDOBus::armLearnEnroll();
   }
 
