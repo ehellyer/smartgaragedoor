@@ -109,14 +109,13 @@ public:
     // Each packet is preceded by the required bus preamble (~1.3 ms LOW).
     // Blocks for ~150-300 ms.  OPEN and CLOSE are idempotent.
     //
-    // NOTE: wireline control does NOT require enrolment via the Learn button —
-    // the opener accepts commands from any device on the wired bus.
+    // NOTE: wireline control does not require a Learn-button ceremony, but the
+    // opener validates rolling codes per device ID.  The device identity
+    // (ID + rolling counter) is persisted in NVS and must remain consistent
+    // across reboots for the opener to continue accepting commands.
     static void sendDoorAction(GDODoorAction action);
 
-    // Legacy wrapper — sends a TOGGLE door action (used by the learn-enrol TX).
-    static void sendDoorCommand()  { sendDoorAction(GDODoorAction::TOGGLE); }
-
-    // Ask the opener to report its status (door/light/lock/obstruction/learn).
+    // Ask the opener to report its status (door/light/lock/obstruction).
     // The opener replies with a 0x081 STATUS packet which updates the cached
     // state below.  It does NOT broadcast status periodically on its own —
     // only on request or when its state changes — so poll this when fresh
@@ -185,13 +184,6 @@ public:
     // Print a one-line running stats summary to Serial.
     static void printStats();
 
-    // Arm auto-TX for the next learn-mode window (STATUS byte2 bit5 = Learn
-    // LED lit).  Type 't' in the serial monitor.  Safe to call before or
-    // during the learn window — fires exactly once when learn mode is first
-    // detected after arming.
-    // NOTE: enrolment is NOT required for wireline control (see sendDoorAction)
-    // — this remains only as a diagnostic/compatibility tool.
-    static void armLearnEnroll();
 
 private:
     // ── Internal helpers ──────────────────────────────────────────────────────
@@ -203,9 +195,8 @@ private:
                          bool incrementRolling);      // Encode + preamble + transmit one packet
     static void waitBusIdle();                        // Wait for RX_GAP_MS of bus silence (drains RX)
     static void sendPreamble();                       // ~1.3 ms bus-LOW frame preamble before TX
-    static void loadIdentity();                       // Load NVS → _rolling, _deviceId
-    static void saveRolling();                        // Persist _rolling to NVS
-    static void clearLearnArmNVS();                   // Clear persistent learn-arm flag
+    static void loadIdentity();                        // Load NVS → _deviceId + _rolling (generate on first boot)
+    static void saveRolling();                         // Persist _rolling to NVS (called sparsely)
     static void printHex(const uint8_t *buf, size_t len); // Hex dump to Serial
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -225,11 +216,6 @@ private:
     static size_t           _rxIdx;
     static unsigned long    _lastRxTime;
     static uint8_t          _txPin;     // cached for the GPIO-matrix preamble
-
-    // ── Learn-mode auto-enrolment ─────────────────────────────────────────────
-    static bool             _learnEnrollArmed;  // set by armLearnEnroll()
-    static bool             _inLearnMode;       // true while opener broadcasts state=6
-    static bool             _pendingLearnTX;    // TX deferred out of processPacket context
 
     // ── Running statistics ────────────────────────────────────────────────────
     static uint32_t         _statBytesRx;

@@ -2,8 +2,8 @@
   "version": 1,
   "name": "ESP32 Security+ 2.0 Garage Door Opener",
   "grid": {
-    "width": 1152,
-    "height": 640
+    "width": 912,
+    "height": 624
   },
   "components": [
     {
@@ -13,7 +13,7 @@
       "icon": "/icons/ESP32 DEVKIT.svg",
       "unit": "",
       "x": 224,
-      "y": 176,
+      "y": 160,
       "rotation": 0,
       "value": "ESP32 Dev Board",
       "mirrored": false,
@@ -37,8 +37,8 @@
       "label": "N-Channel MOSFET",
       "icon": "/icons/N-Channel MOSFET.svg",
       "unit": "",
-      "x": 736,
-      "y": 240,
+      "x": 528,
+      "y": 224,
       "rotation": 0,
       "value": "2n7000",
       "mirrored": true,
@@ -61,8 +61,8 @@
       "label": "Input Label",
       "icon": "/icons/Input Label.svg",
       "unit": "",
-      "x": 944,
-      "y": 16,
+      "x": 736,
+      "y": 0,
       "rotation": 0,
       "value": "Black (Obstruct)",
       "mirrored": false,
@@ -85,8 +85,8 @@
       "label": "Input Label",
       "icon": "/icons/Input Label.svg",
       "unit": "",
-      "x": 944,
-      "y": 80,
+      "x": 736,
+      "y": 64,
       "rotation": 0,
       "value": "White (GND)",
       "mirrored": false,
@@ -109,8 +109,8 @@
       "label": "Input Label",
       "icon": "/icons/Input Label.svg",
       "unit": "",
-      "x": 944,
-      "y": 48,
+      "x": 736,
+      "y": 32,
       "rotation": 0,
       "value": "Red (Serial Bus)",
       "mirrored": false,
@@ -134,7 +134,7 @@
       "icon": "/icons/DC Voltage Source.svg",
       "unit": "",
       "x": 96,
-      "y": 464,
+      "y": 448,
       "rotation": 0,
       "value": "5V DC",
       "mirrored": false,
@@ -148,7 +148,7 @@
         "underline": false,
         "strike": false,
         "color": "#000000",
-        "distance": 46
+        "distance": 50
       }
     },
     {
@@ -157,8 +157,8 @@
       "label": "General Ground",
       "icon": "/icons/General Ground.svg",
       "unit": "",
-      "x": 96,
-      "y": 560,
+      "x": 160,
+      "y": 544,
       "rotation": 0,
       "value": "",
       "mirrored": false,
@@ -171,8 +171,8 @@
       "label": "N-Channel MOSFET",
       "icon": "/icons/N-Channel MOSFET.svg",
       "unit": "",
-      "x": 800,
-      "y": 416,
+      "x": 592,
+      "y": 400,
       "rotation": 0,
       "value": "AO3400A",
       "mirrored": false,
@@ -195,8 +195,8 @@
       "label": "Resistor",
       "icon": "/icons/Resistor.svg",
       "unit": "",
-      "x": 816,
-      "y": 208,
+      "x": 608,
+      "y": 192,
       "rotation": 270,
       "value": "10KΩ",
       "mirrored": false,
@@ -214,37 +214,13 @@
       }
     },
     {
-      "id": 10,
-      "type": "Resistors",
-      "label": "Resistor",
-      "icon": "/icons/Resistor.svg",
-      "unit": "",
-      "x": 480,
-      "y": 288,
-      "rotation": 90,
-      "value": "10KΩ",
-      "mirrored": false,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "bottom",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 31
-      }
-    },
-    {
       "id": 11,
       "type": "Resistors",
       "label": "Resistor",
       "icon": "/icons/Resistor.svg",
       "unit": "",
-      "x": 704,
-      "y": 416,
+      "x": 496,
+      "y": 400,
       "rotation": 0,
       "value": "10KΩ",
       "mirrored": false,
@@ -267,8 +243,8 @@
       "label": "Resistor",
       "icon": "/icons/Resistor.svg",
       "unit": "",
-      "x": 720,
-      "y": 128,
+      "x": 512,
+      "y": 112,
       "rotation": 90,
       "value": "10KΩ",
       "mirrored": false,
@@ -291,8 +267,8 @@
       "label": "No-Contact Trace",
       "icon": "/icons/No-Contact Trace.svg",
       "unit": "",
-      "x": 896,
-      "y": 304,
+      "x": 688,
+      "y": 288,
       "rotation": 90,
       "value": "",
       "mirrored": false,
@@ -305,8 +281,8 @@
       "label": "Capacitor",
       "icon": "/icons/Capacitor.svg",
       "unit": "",
-      "x": 864,
-      "y": 96,
+      "x": 656,
+      "y": 80,
       "rotation": 0,
       "value": "100nf",
       "mirrored": false,
@@ -329,8 +305,8 @@
       "label": "Text Box",
       "icon": "/icons/Text Box.svg",
       "unit": "",
-      "x": 96,
-      "y": 144,
+      "x": 128,
+      "y": 128,
       "rotation": 0,
       "value": "3v3 rail",
       "mirrored": false,
@@ -338,203 +314,13 @@
       "height": 64
     },
     {
-      "id": 18,
-      "type": "Resistors",
-      "label": "Resistor",
-      "icon": "/icons/Resistor.svg",
-      "unit": "",
-      "x": 544,
-      "y": 288,
-      "rotation": 90,
-      "value": "10KΩ",
-      "mirrored": false,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "top",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 27
-      }
-    },
-    {
-      "id": 20,
-      "type": "Switches",
-      "label": "1P1T Switch",
-      "icon": "/icons/1P1T Switch.svg",
-      "unit": "",
-      "x": 480,
-      "y": 368,
-      "rotation": 90,
-      "value": "",
-      "mirrored": false,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "top",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 36
-      }
-    },
-    {
-      "id": 21,
-      "type": "Switches",
-      "label": "1P1T Switch",
-      "icon": "/icons/1P1T Switch.svg",
-      "unit": "",
-      "x": 544,
-      "y": 368,
-      "rotation": 90,
-      "value": "",
-      "mirrored": false,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "right",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 50
-      }
-    },
-    {
-      "id": 22,
-      "type": "Utilities",
-      "label": "No-Contact Trace",
-      "icon": "/icons/No-Contact Trace.svg",
-      "unit": "",
-      "x": 528,
-      "y": 176,
-      "rotation": 90,
-      "value": "",
-      "mirrored": false,
-      "width": 32,
-      "height": 32
-    },
-    {
-      "id": 23,
-      "type": "Utilities",
-      "label": "No-Contact Trace",
-      "icon": "/icons/No-Contact Trace.svg",
-      "unit": "",
-      "x": 528,
-      "y": 208,
-      "rotation": 90,
-      "value": "",
-      "mirrored": false,
-      "width": 32,
-      "height": 32
-    },
-    {
-      "id": 24,
-      "type": "Utilities",
-      "label": "No-Contact Trace",
-      "icon": "/icons/No-Contact Trace.svg",
-      "unit": "",
-      "x": 528,
-      "y": 240,
-      "rotation": 0,
-      "value": "",
-      "mirrored": false,
-      "width": 32,
-      "height": 32
-    },
-    {
-      "id": 25,
-      "type": "Utilities",
-      "label": "Text Box",
-      "icon": "/icons/Text Box.svg",
-      "unit": "",
-      "x": 576,
-      "y": 416,
-      "rotation": 0,
-      "value": "Reed Sw (NC)",
-      "mirrored": false,
-      "width": 64,
-      "height": 64
-    },
-    {
-      "id": 26,
-      "type": "Utilities",
-      "label": "Text Box",
-      "icon": "/icons/Text Box.svg",
-      "unit": "",
-      "x": 464,
-      "y": 416,
-      "rotation": 0,
-      "value": "Reed Sw (NC)",
-      "mirrored": false,
-      "width": 64,
-      "height": 64
-    },
-    {
-      "id": 27,
-      "type": "Utilities",
-      "label": "Text Box",
-      "icon": "/icons/Text Box.svg",
-      "unit": "",
-      "x": 592,
-      "y": 432,
-      "rotation": 0,
-      "value": "Closed Stop-end",
-      "mirrored": false,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "left",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 4
-      }
-    },
-    {
-      "id": 28,
-      "type": "Utilities",
-      "label": "Text Box",
-      "icon": "/icons/Text Box.svg",
-      "unit": "",
-      "x": 480,
-      "y": 432,
-      "rotation": 0,
-      "value": "Open Stop-end",
-      "mirrored": false,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "left",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 12
-      }
-    },
-    {
       "id": 32,
       "type": "Resistors",
       "label": "Resistor",
       "icon": "/icons/Resistor.svg",
       "unit": "",
-      "x": 400,
-      "y": 16,
+      "x": 304,
+      "y": 0,
       "rotation": 180,
       "value": "10KΩ",
       "mirrored": false,
@@ -557,8 +343,8 @@
       "label": "Resistor",
       "icon": "/icons/Resistor.svg",
       "unit": "",
-      "x": 336,
-      "y": 16,
+      "x": 240,
+      "y": 0,
       "rotation": 180,
       "value": "10KΩ",
       "mirrored": false,
@@ -582,7 +368,7 @@
       "icon": "/icons/No-Contact Trace.svg",
       "unit": "",
       "x": 176,
-      "y": 96,
+      "y": 80,
       "rotation": 90,
       "value": "",
       "mirrored": false,
@@ -595,8 +381,8 @@
       "label": "Resistor",
       "icon": "/icons/Resistor.svg",
       "unit": "",
-      "x": 736,
-      "y": 464,
+      "x": 528,
+      "y": 448,
       "rotation": 90,
       "value": "100KΩ",
       "mirrored": false,
@@ -619,8 +405,8 @@
       "label": "Text Box",
       "icon": "/icons/Text Box.svg",
       "unit": "",
-      "x": 304,
-      "y": 544,
+      "x": 400,
+      "y": 528,
       "rotation": 90,
       "value": "Note: Schematic tool limitations",
       "mirrored": false,
@@ -643,37 +429,13 @@
       "label": "Text Box",
       "icon": "/icons/Text Box.svg",
       "unit": "",
-      "x": 416,
-      "y": 560,
+      "x": 512,
+      "y": 544,
       "rotation": 0,
       "value": "GPIO pin assignments will vary in actual implementation.",
       "mirrored": false,
       "width": 64,
       "height": 64
-    },
-    {
-      "id": 39,
-      "type": "Utilities",
-      "label": "Text Box",
-      "icon": "/icons/Text Box.svg",
-      "unit": "",
-      "x": 384,
-      "y": 576,
-      "rotation": 0,
-      "value": "The reed switch state shown is not a starting condition.",
-      "mirrored": true,
-      "width": 64,
-      "height": 64,
-      "textStyle": {
-        "position": "left",
-        "fontSize": 14,
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "strike": false,
-        "color": "#000000",
-        "distance": 34
-      }
     },
     {
       "id": 41,
@@ -682,7 +444,7 @@
       "icon": "/icons/Polarized Capacitor.svg",
       "unit": "µF",
       "x": 160,
-      "y": 464,
+      "y": 448,
       "rotation": 90,
       "value": "100",
       "mirrored": false,
@@ -702,34 +464,12 @@
   ],
   "wires": [
     {
-      "id": 9,
-      "points": [
-        752,
-        304,
-        752,
-        320,
-        944,
-        320
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 2,
-          "connIdx": 2
-        }
-      }
-    },
-    {
       "id": 14,
       "points": [
-        848,
-        480,
-        848,
-        480
+        640,
+        464,
+        640,
+        464
       ],
       "style": {
         "color": "black",
@@ -750,10 +490,10 @@
     {
       "id": 15,
       "points": [
-        848,
-        480,
-        848,
-        480
+        640,
+        464,
+        640,
+        464
       ],
       "style": {
         "color": "black",
@@ -774,10 +514,10 @@
     {
       "id": 16,
       "points": [
-        848,
-        480,
-        848,
-        544
+        640,
+        464,
+        640,
+        528
       ],
       "style": {
         "color": "black",
@@ -794,16 +534,16 @@
     {
       "id": 20,
       "points": [
-        752,
-        128,
-        752,
+        544,
         112,
-        144,
-        112,
-        144,
-        240,
+        544,
+        96,
+        176,
+        96,
+        176,
         224,
-        240
+        224,
+        224
       ],
       "style": {
         "color": "black",
@@ -822,52 +562,12 @@
       }
     },
     {
-      "id": 24,
-      "points": [
-        128,
-        544,
-        128,
-        560
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "end": {
-          "componentId": 7,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 23,
-      "points": [
-        128,
-        528,
-        128,
-        544
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 6,
-          "connIdx": 1
-        }
-      }
-    },
-    {
       "id": 26,
       "points": [
-        848,
-        272,
-        800,
-        272
+        640,
+        256,
+        592,
+        256
       ],
       "style": {
         "color": "black",
@@ -886,48 +586,12 @@
       }
     },
     {
-      "id": 33,
-      "points": [
-        944,
-        320,
-        944,
-        544,
-        128,
-        544
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      }
-    },
-    {
-      "id": 32,
-      "points": [
-        944,
-        112,
-        944,
-        320
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 4,
-          "connIdx": 0
-        }
-      }
-    },
-    {
       "id": 34,
       "points": [
-        752,
-        128,
-        752,
-        128
+        544,
+        112,
+        544,
+        112
       ],
       "style": {
         "color": "black",
@@ -948,10 +612,10 @@
     {
       "id": 35,
       "points": [
-        752,
-        128,
-        752,
-        128
+        544,
+        112,
+        544,
+        112
       ],
       "style": {
         "color": "black",
@@ -972,10 +636,10 @@
     {
       "id": 45,
       "points": [
-        752,
-        192,
-        752,
-        240
+        544,
+        176,
+        544,
+        224
       ],
       "style": {
         "color": "black",
@@ -996,20 +660,18 @@
     {
       "id": 47,
       "points": [
-        704,
-        448,
-        688,
-        448,
-        672,
-        448,
-        672,
-        224,
+        496,
         432,
-        224,
+        480,
         432,
-        240,
+        464,
+        432,
+        464,
+        224,
+        416,
+        224,
         384,
-        240
+        224
       ],
       "style": {
         "color": "black",
@@ -1028,14 +690,38 @@
       }
     },
     {
+      "id": 200,
+      "points": [
+        384,
+        224,
+        384,
+        224
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 1,
+          "connIdx": 16
+        },
+        "end": {
+          "componentId": 1,
+          "connIdx": 16
+        }
+      }
+    },
+    {
       "id": 50,
       "points": [
         384,
+        400,
         416,
-        432,
+        400,
         416,
-        432,
-        544
+        528
       ],
       "style": {
         "color": "black",
@@ -1052,10 +738,10 @@
     {
       "id": 56,
       "points": [
-        768,
-        448,
-        800,
-        448
+        560,
+        432,
+        592,
+        432
       ],
       "style": {
         "color": "black",
@@ -1076,14 +762,14 @@
     {
       "id": 63,
       "points": [
-        848,
-        416,
-        848,
-        368,
-        912,
-        368,
-        912,
-        336
+        640,
+        400,
+        640,
+        352,
+        704,
+        352,
+        704,
+        320
       ],
       "style": {
         "color": "black",
@@ -1104,10 +790,10 @@
     {
       "id": 68,
       "points": [
-        848,
-        208,
-        848,
-        208
+        640,
+        192,
+        640,
+        192
       ],
       "style": {
         "color": "black",
@@ -1128,10 +814,10 @@
     {
       "id": 69,
       "points": [
-        848,
-        208,
-        848,
-        208
+        640,
+        192,
+        640,
+        192
       ],
       "style": {
         "color": "black",
@@ -1152,12 +838,12 @@
     {
       "id": 70,
       "points": [
-        848,
-        208,
-        848,
-        80,
-        944,
-        80
+        640,
+        192,
+        640,
+        64,
+        736,
+        64
       ],
       "style": {
         "color": "black",
@@ -1178,10 +864,10 @@
     {
       "id": 75,
       "points": [
-        928,
-        128,
-        944,
-        128
+        720,
+        112,
+        736,
+        112
       ],
       "style": {
         "color": "black",
@@ -1198,10 +884,10 @@
     {
       "id": 76,
       "points": [
-        864,
-        128,
-        848,
-        128
+        656,
+        112,
+        640,
+        112
       ],
       "style": {
         "color": "black",
@@ -1219,11 +905,11 @@
       "id": 89,
       "points": [
         128,
-        464,
-        128,
         448,
-        224,
-        448
+        128,
+        432,
+        256,
+        432
       ],
       "style": {
         "color": "black",
@@ -1234,58 +920,6 @@
         "start": {
           "componentId": 6,
           "connIdx": 0
-        },
-        "end": {
-          "componentId": 1,
-          "connIdx": 14
-        }
-      }
-    },
-    {
-      "id": 100,
-      "points": [
-        512,
-        352,
-        512,
-        368
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 10,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 20,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 110,
-      "points": [
-        576,
-        352,
-        576,
-        368
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 18,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 21,
-          "connIdx": 0
         }
       }
     },
@@ -1293,15 +927,15 @@
       "id": 112,
       "points": [
         384,
-        224,
-        400,
-        224,
-        400,
-        192,
-        704,
-        192,
-        704,
-        224
+        208,
+        416,
+        208,
+        368,
+        208,
+        496,
+        208,
+        496,
+        208
       ],
       "style": {
         "color": "black",
@@ -1316,316 +950,12 @@
       }
     },
     {
-      "id": 121,
+      "id": 156,
       "points": [
-        512,
-        288,
-        576,
-        288
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 10,
-          "connIdx": 0
-        },
-        "end": {
-          "componentId": 18,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 123,
-      "points": [
-        576,
-        432,
-        576,
-        432
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 21,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 21,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 124,
-      "points": [
-        576,
-        432,
-        576,
-        432
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 21,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 21,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 125,
-      "points": [
-        576,
-        432,
-        512,
-        432
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 21,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 20,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 129,
-      "points": [
-        544,
+        496,
         208,
         544,
         208
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 22,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 23,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 130,
-      "points": [
-        544,
-        240,
-        544,
-        288
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 23,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 131,
-      "points": [
-        544,
-        176,
-        544,
-        112
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 22,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 132,
-      "points": [
-        384,
-        256,
-        448,
-        256,
-        528,
-        256
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 1,
-          "connIdx": 17
-        },
-        "end": {
-          "componentId": 24,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 135,
-      "points": [
-        384,
-        272,
-        432,
-        272,
-        432,
-        368,
-        512,
-        368
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 1,
-          "connIdx": 18
-        },
-        "end": {
-          "componentId": 20,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 140,
-      "points": [
-        576,
-        352,
-        576,
-        352
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 18,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 18,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 141,
-      "points": [
-        576,
-        352,
-        576,
-        352
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 18,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 18,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 144,
-      "points": [
-        544,
-        544,
-        544,
-        432
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      }
-    },
-    {
-      "id": 152,
-      "points": [
-        560,
-        256,
-        640,
-        256,
-        640,
-        368,
-        576,
-        368
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 24,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 21,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 156,
-      "points": [
-        704,
-        224,
-        752,
-        224
       ],
       "style": {
         "color": "black",
@@ -1636,10 +966,10 @@
     {
       "id": 155,
       "points": [
-        704,
-        224,
-        704,
-        224
+        496,
+        208,
+        496,
+        208
       ],
       "style": {
         "color": "black",
@@ -1650,12 +980,12 @@
     {
       "id": 157,
       "points": [
-        912,
-        304,
-        912,
-        192,
-        848,
-        192
+        704,
+        288,
+        704,
+        176,
+        640,
+        176
       ],
       "style": {
         "color": "black",
@@ -1670,38 +1000,12 @@
       }
     },
     {
-      "id": 163,
-      "points": [
-        192,
-        128,
-        192,
-        224,
-        224,
-        224
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 34,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 1,
-          "connIdx": 0
-        }
-      }
-    },
-    {
       "id": 171,
       "points": [
-        464,
-        48,
-        944,
-        48
+        368,
+        32,
+        736,
+        32
       ],
       "style": {
         "color": "black",
@@ -1720,88 +1024,12 @@
       }
     },
     {
-      "id": 172,
-      "points": [
-        336,
-        48,
-        80,
-        48,
-        48,
-        48,
-        48,
-        544,
-        128,
-        544
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 33,
-          "connIdx": 1
-        }
-      }
-    },
-    {
-      "id": 176,
-      "points": [
-        400,
-        48,
-        400,
-        48
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 32,
-          "connIdx": 1
-        },
-        "end": {
-          "componentId": 33,
-          "connIdx": 0
-        }
-      }
-    },
-    {
-      "id": 177,
-      "points": [
-        192,
-        96,
-        400,
-        96,
-        400,
-        48
-      ],
-      "style": {
-        "color": "black",
-        "width": 2,
-        "dash": []
-      },
-      "meta": {
-        "start": {
-          "componentId": 34,
-          "connIdx": 0
-        },
-        "end": {
-          "componentId": 32,
-          "connIdx": 1
-        }
-      }
-    },
-    {
       "id": 178,
       "points": [
-        768,
-        464,
-        768,
-        448
+        560,
+        448,
+        560,
+        432
       ],
       "style": {
         "color": "black",
@@ -1822,10 +1050,10 @@
     {
       "id": 179,
       "points": [
-        768,
-        528,
-        768,
-        544
+        560,
+        512,
+        560,
+        528
       ],
       "style": {
         "color": "black",
@@ -1840,12 +1068,162 @@
       }
     },
     {
-      "id": 180,
+      "id": 195,
+      "points": [
+        336,
+        224,
+        336,
+        224
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      }
+    },
+    {
+      "id": 196,
+      "points": [
+        336,
+        224,
+        336,
+        224
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      }
+    },
+    {
+      "id": 206,
       "points": [
         192,
-        464,
+        112,
         192,
-        448
+        112
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 34,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 34,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 207,
+      "points": [
+        192,
+        112,
+        192,
+        112
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 34,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 34,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 208,
+      "points": [
+        192,
+        112,
+        192,
+        208,
+        224,
+        208
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 34,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 1,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 209,
+      "points": [
+        224,
+        208,
+        224,
+        208
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 1,
+          "connIdx": 0
+        },
+        "end": {
+          "componentId": 1,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 210,
+      "points": [
+        224,
+        208,
+        224,
+        208
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 1,
+          "connIdx": 0
+        },
+        "end": {
+          "componentId": 1,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 213,
+      "points": [
+        192,
+        448,
+        192,
+        432
       ],
       "style": {
         "color": "black",
@@ -1860,12 +1238,102 @@
       }
     },
     {
-      "id": 181,
+      "id": 214,
+      "points": [
+        128,
+        512,
+        128,
+        512
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 6,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 6,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 215,
+      "points": [
+        128,
+        512,
+        128,
+        512
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 6,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 6,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 216,
+      "points": [
+        128,
+        512,
+        128,
+        528
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 6,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 219,
+      "points": [
+        544,
+        288,
+        544,
+        304,
+        736,
+        304
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 2,
+          "connIdx": 2
+        }
+      }
+    },
+    {
+      "id": 222,
       "points": [
         192,
-        464,
+        512,
         192,
-        480
+        512
       ],
       "style": {
         "color": "black",
@@ -1875,15 +1343,43 @@
       "meta": {
         "start": {
           "componentId": 41,
-          "connIdx": 0
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 41,
+          "connIdx": 1
         }
       }
     },
     {
-      "id": 182,
+      "id": 223,
       "points": [
         192,
-        528,
+        512,
+        192,
+        512
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 41,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 41,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 224,
+      "points": [
+        192,
+        512,
         192,
         544
       ],
@@ -1896,6 +1392,154 @@
         "start": {
           "componentId": 41,
           "connIdx": 1
+        },
+        "end": {
+          "componentId": 7,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 225,
+      "points": [
+        192,
+        80,
+        192,
+        80
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 34,
+          "connIdx": 0
+        },
+        "end": {
+          "componentId": 34,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 226,
+      "points": [
+        192,
+        80,
+        192,
+        80
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 34,
+          "connIdx": 0
+        },
+        "end": {
+          "componentId": 34,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 227,
+      "points": [
+        192,
+        80,
+        304,
+        80,
+        304,
+        32
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 34,
+          "connIdx": 0
+        },
+        "end": {
+          "componentId": 32,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 229,
+      "points": [
+        304,
+        32,
+        304,
+        32
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 32,
+          "connIdx": 1
+        },
+        "end": {
+          "componentId": 33,
+          "connIdx": 0
+        }
+      }
+    },
+    {
+      "id": 230,
+      "points": [
+        240,
+        32,
+        32,
+        32,
+        32,
+        528,
+        128,
+        528
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "start": {
+          "componentId": 33,
+          "connIdx": 1
+        }
+      }
+    },
+    {
+      "id": 233,
+      "points": [
+        128,
+        528,
+        736,
+        528,
+        736,
+        96
+      ],
+      "style": {
+        "color": "black",
+        "width": 2,
+        "dash": []
+      },
+      "meta": {
+        "end": {
+          "componentId": 4,
+          "connIdx": 0
         }
       }
     }

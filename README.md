@@ -1,13 +1,13 @@
 # Smart Garage Door Controller
 ## Craftsman 045DCT · ESP32 · Security+ 2.0 Wireline · Apple HomeKit
 
-**Firmware v1.3.0**
+**Firmware v2.0.0**
 
 ---
 
 ## Overview
 
-This project adds native Apple HomeKit support to a **Craftsman 045DCT** (2015, yellow learn button) garage door opener by tapping directly into the Security+ 2.0 wired serial bus — the same bus the wall panel uses.  No RF radio is needed, and **no Learn-button enrolment is required**: the opener accepts wired commands from any device on the bus.  The ESP32 connects to WiFi and appears in the Apple Home app as a **Garage Door** accessory with three controls — door, opener light, and remote lockout — plus obstruction reporting.  No hub or cloud service is involved.
+This project adds native Apple HomeKit support to a **Craftsman 045DCT** (2015, yellow learn button) garage door opener by tapping directly into the Security+ 2.0 wired serial bus, the same bus the wall panel uses.  No RF radio is needed.  Unlike wireless remotes, wired-bus devices do not require a Learn-button ceremony — the opener automatically accepts commands from a new wired device ID on first contact.  However, the opener does validate each command against a per-device rolling code to prevent replay attacks: every command must carry a rolling code higher than the last one it accepted from that device ID.  This firmware generates a random 40-bit device identity on first boot, persists it to NVS flash, and bumps the rolling code forward by 64 on every reboot so it always stays ahead of the opener's last recorded value.  The ESP32 connects to WiFi and appears in the Apple Home app as a **Garage Door** accessory with three controls: door, opener light, and remote lockout — plus obstruction reporting.  No hub or cloud service is involved.
 
 **HomeKit features:**
 
@@ -22,7 +22,7 @@ This project adds native Apple HomeKit support to a **Craftsman 045DCT** (2015, 
 - Opener communicates at 9600 baud 8N1 on a single active-LOW wire (RED terminal); every packet is preceded by a ~1.3 ms bus-LOW preamble
 - Protocol is Security+ 2.0 wireline, encoded/decoded with the `secplus` library; command codes and payload layout verified against the [ratgdo](https://github.com/ratgdo/esphome-ratgdo) project and live bus captures
 - HomeKit is implemented natively on the ESP32 with the `HomeSpan` library — no Homebridge or extra hardware
-- Two magnetic reed switches give definitive hardware signals for the "Closed" and "Fully Open" end-stops; bus status reports cover the in-between travel.  For this opener the magnets are mounted on the carriage.  The reeds are located at either end of travel on the carrier rail.  (See Project Photos)
+- Door state is driven entirely by the Security+ 2.0 bus: STATUS packets report OPEN, CLOSED, OPENING, CLOSING, and STOPPED directly; no reed switches are used
 - The opener does **not** broadcast status periodically — the firmware polls `GET_STATUS` while commands are in flight and every 60 s when idle
 - Rolling codes are persisted in NVS flash with a wear-limiting policy (saved every 16 increments, +64 boot bump so the counter never falls behind the opener's view)
 
@@ -38,14 +38,10 @@ This project adds native Apple HomeKit support to a **Craftsman 045DCT** (2015, 
 | R1   | 10 kΩ resistor                | 1/4 W          | ±5%                          | 2N7000 gate series resistor from RED        |
 | R2   | 10 kΩ resistor                | 1/4 W          | ±5%                          | 2N7000 drain pull-up to 3.3 V               |
 | R3   | 10 kΩ resistor                | 1/4 W          | ±5%                          | AO3400A gate drive from GPIO21              |
-| R4   | 10 kΩ resistor                | 1/4 W          | ±5%                          | SW1 (CLOSED reed) pull-up to 3.3 V          |
-| R5   | 10 kΩ resistor                | 1/4 W          | ±5%                          | SW2 (OPEN reed) pull-up to 3.3 V            |
 | R6   | 10 kΩ resistor                | 1/4 W          | ±5%                          | Obstruction divider — top (BLACK wire side) |
 | R7   | 10 kΩ resistor                | 1/4 W          | ±5%                          | Obstruction divider — bottom (GND side)     |
 | R8   | 100 kΩ resistor               | 1/4 W          | ±5%                          | AO3400A gate → GND pull-down; holds the bus released while the ESP32 is in reset/boot. 
 | C1   | 100 nF ceramic capacitor      | 0805 or THT    | 50 V                         | Noise filter across RED/GND at the screw terminal |
-| SW1  | Magnetic reed switch (NC)     | varies         | normally-closed              | **CLOSED** end-stop — door frame at bottom; magnet on door |
-| SW2  | Magnetic reed switch (NC)     | varies         | normally-closed              | **OPEN** end-stop — track at fully-open position; magnet on door |
 | J1   | Screw terminal block          | 5 mm pitch     | 300 V / 10 A                 | RED, WHITE, BLACK connections to opener     |
 | —    | SOT-23 → DIP adapter board    | PCB            | 3-pin                        | Lets Q2 sit in a breadboard / perfboard     |
 | —    | USB 5 V supply                | wall plug      | ≥500 mA                      | Powers ESP32; standard phone charger works  |
@@ -128,33 +124,6 @@ The opener's safety-beam line has three states (ratgdo research): **clear** = HI
 
 > **Measured on this opener:** BLACK line = 5.95 V, divider midpoint = 2.95 V — comfortably within spec (below the 3.3 V rail, above the ESP32's ~2.48 V V_IH logic-high threshold).  The 10K/10K divider is correct as-built.  If a different opener's sensor line runs near 7 V the midpoint would reach ~3.5 V; use 6.8 kΩ for R7 in that case.
 
-### Reed switches (dual end-stop sensors)
-
-Both switches are normally-closed (NC): the contact shorts to GND when the magnet is **absent** and opens when the magnet is **present**.  External pull-ups (reinforced by `INPUT_PULLUP`) hold the pin HIGH while the contact is open.
-
-```
-3.3 V ──[R4 10kΩ]───┬── GPIO25  (CLOSED end-stop)
-                    │
-                   [SW1 — fully-closed position on overhead track]
-                    │
-                   GND
-
-3.3 V ──[R5 10kΩ]───┬── GPIO26  (OPEN end-stop)
-                    │
-                   [SW2 — fully-open position on overhead track]
-                    │
-                   GND
-```
-
-**State truth table** (HIGH = magnet present = door at that end-stop):
-
-| SW1 (GPIO25) | SW2 (GPIO26) | Door state                                    |
-|--------------|--------------|-----------------------------------------------|
-| HIGH         | LOW          | **Closed**                                    |
-| LOW          | HIGH         | **Open**                                      |
-| LOW          | LOW          | **In between** — Opening, Closing, or Stopped |
-| HIGH         | HIGH         | Error (mechanically impossible; logged)       |
-
 ---
 
 ## GPIO Assignments
@@ -163,8 +132,6 @@ Both switches are normally-closed (NC): the contact shorts to GND when the magne
 |------|-----------|------------------------------|---------------------------------------|
 | 21   | Output    | UART2 TX (inverted) + preamble | R3 → Q2 (AO3400A) gate              |
 | 22   | Input     | UART2 RX (inverted)          | Q1 (2N7000) drain + R2 pull-up        |
-| 25   | Input     | Reed switch — CLOSED end     | SW1 + R4 pull-up to 3.3 V            |
-| 26   | Input     | Reed switch — OPEN end       | SW2 + R5 pull-up to 3.3 V            |
 | 34   | Input     | Obstruction sensor (input-only pin) | R6/R7 divider midpoint from BLACK wire |
 | 2    | Output    | On-board status LED (heartbeat blink) | —                            |
 
@@ -183,7 +150,7 @@ Verified against [ratgdo/esphome-ratgdo](https://github.com/ratgdo/esphome-ratgd
 | Code  | Name | Notes |
 |-------|------|-------|
 | 0x080 | GET_STATUS | Opener replies with STATUS |
-| 0x081 | STATUS | nibble = door state (0=unknown 1=open 2=closed 3=stopped 4=opening 5=closing); byte1 bit6 = obstruction (inverted: 0=obstructed); byte2 bit0 = locked, bit1 = light, bit5 = learn active |
+| 0x081 | STATUS | nibble = door state (0=unknown 1=open 2=closed 3=stopped 4=opening 5=closing); byte1 bit6 = obstruction (inverted: 0=obstructed); byte2 bit0 = locked, bit1 = light |
 | 0x280 | DOOR_ACTION | nibble = action (0=close 1=open 2=toggle 3=stop); sent as PRESS (byte1=1, byte2=1) then ~150 ms later RELEASE (byte1=0, byte2=1); both share one rolling code, incremented after the pair |
 | 0x281 | LIGHT | nibble: 0=off 1=on 2=toggle; single packet |
 | 0x18C | LOCK | nibble: 0=unlock 1=lock 2=toggle; single packet (remote lockout) |
@@ -198,22 +165,21 @@ The opener **does not** broadcast STATUS periodically — only in reply to GET_S
 HomeSpan (HAP)  ←→  GarageDoorService ─┬─→  GDOBus (secplus)  ←→ UART2 ←→ RED bus
                     LightService      ─┤
                     LockService       ─┘
-                         ↕
-        SW1 (closed)  SW2 (open)  GPIO34 (obstruction)
+                                          GPIO34 (obstruction)
 ```
 
 | File | Role |
 |------|------|
-| `src/GDOBus.h/.cpp` | Wireline driver: packet RX/TX, preamble, rolling-code management, status cache (door/light/lock/obstruction), state-change callback, diagnostics (`verify()`, stats), learn-mode tooling |
-| `src/GarageDoorService.h` | HomeKit door: reed debouncing, goal-seeking command sequencer (explicit OPEN/CLOSE with evidence-based retry, max 4 attempts), travel timeout, hardware obstruction pulse detection, background status refresh |
+| `src/GDOBus.h/.cpp` | Wireline driver: packet RX/TX, preamble, rolling-code management, status cache (door/light/lock/obstruction), state-change callback, diagnostics (`verify()`, stats) |
+| `src/GarageDoorService.h` | HomeKit door service: bus-driven state machine, single explicit OPEN/CLOSE command with 20 s travel timeout, hardware obstruction pulse detection, 60 s background sync poll |
 | `src/GarageDoorService.cpp` | Out-of-line definition of the obstruction ISR (IRAM functions must not be defined inline in a header — Xtensa linker literal-pool limitation) |
 | `src/LightService.h` | HomeKit light tile — commands + state mirroring |
 | `src/LockService.h` | HomeKit lock tile (remote lockout) — commands + state mirroring |
-| `src/main.cpp` | Pin definitions, HomeSpan setup, accessory definition, serial 't' learn trigger |
+| `src/main.cpp` | Pin definitions, HomeSpan setup, accessory definition |
 
-**State priority for the door (highest first):** reed switches (hardware truth at the end-stops) → bus status events → optimistic command state → 18 s travel timeout.
+**Door state source:** the Security+ 2.0 bus is the sole source of truth.  The GDOBus state-change callback updates HomeKit on every new bus state.  A direct cache check in `GarageDoorService::loop()` reconciles any case where the HAP state becomes stuck in a transitional value while the bus cache already holds the correct end-stop state.
 
-**Command verification:** when HomeKit commands the door, the sequencer sends the explicit action, then watches reed and status evidence.  If the door isn't moving the right way within 4 s it re-sends (explicit actions are idempotent), polling status every 2 s, and gives up after 4 attempts.  A CLOSE goal is abandoned immediately if an obstruction is reported by either source.
+**Command flow:** when HomeKit commands the door, a single explicit OPEN or CLOSE action is sent on the bus; polling every 2 s then watches for the opener's STATUS confirmation.  A 20 s travel timeout marks the door Stopped if no end-stop is confirmed (covers slower battery-backup travel speed).  A CLOSE command is suppressed while an obstruction is detected.
 
 ---
 
@@ -246,7 +212,7 @@ On first build PlatformIO clones and compiles automatically:
 
 ### 5. Pin assignments
 
-Defaults in `src/main.cpp` match the schematic (`GDO_TX_PIN 21`, `GDO_RX_PIN 22`, `REED_CLOSED_PIN 25`, `REED_OPEN_PIN 26`, `OBST_PIN 34`).
+Defaults in `src/main.cpp` match the schematic (`GDO_TX_PIN 21`, `GDO_RX_PIN 22`, `OBST_PIN 34`, `LED_PIN 2`).
 
 ### 6. Build / flash
 
@@ -274,17 +240,19 @@ On boot the firmware runs a **bus verification** (1 s listen) and prints a repor
 (Raw bytes ≈ 20 × packets — each packet is 19 bytes plus its preamble arriving as one `0x00`.)  It then queries the opener's status; you should see:
 
 ```
-[GDO] RX  cmd=0x081  dev=0x...  roll=0x...  payload=0x16062
-[GDO]     door=OPEN     light=ON   lock=unlocked  obstruction=no   learn=off
+[00:00.xxx] [GDO] RX  cmd=0x081  dev=0x...  roll=0x...  payload=0x...
+[00:00.xxx] [GDO]     door=OPEN     light=ON   lock=unlocked  obstruction=no
 ```
 
 When commanding the door from the Home app, look for the press/release pair and the opener's response:
 
 ```
-[Seq] Door action CLOSE (1 of 4)
-[GDO] TX  cmd=0x280  payload=0x00101  roll=0x...   ← press
-[GDO] TX  cmd=0x280  payload=0x00001  roll=0x...   ← release
-[GDO] RX  cmd=0x081  ...  door=CLOSING ...
+[Door] HomeKit → CLOSE
+[00:xx.xxx] [GDO] TX  cmd=0x280  payload=0x00101  roll=0x...   ← press
+[00:xx.xxx] [GDO] TX  cmd=0x280  payload=0x00001  roll=0x...   ← release
+[00:xx.xxx] [GDO] RX  cmd=0x081  ...
+[00:xx.xxx] [GDO]     door=CLOSING  light=ON  lock=unlocked  obstruction=no
+[Door] Bus → CLOSING
 ```
 
 Block the safety beam and `[Obst] Obstruction → DETECTED` should appear within ~100 ms.
@@ -298,14 +266,11 @@ Block the safety beam and `[Obst] Obstruction → DETECTED` should appear within
 | Verify: no bytes received | RX circuit wiring | Check R1, R2, Q1 orientation; RED/WHITE connections; RX pin |
 | Verify: bytes but no sync headers | Wrong baud / missing UART inversion | Confirm `GDO_BAUD 9600` and `invert=true` in `GDOBus::begin()` |
 | Commands sent but door doesn't move | TX path | Verify Q2 wiring (drain to RED); scope GPIO21 for the 1.3 ms preamble + packet; confirm the wall unit still works (bus not held low) |
-| Door state wrong in Home app | Status parsing / reed wiring | Compare `[GDO] door=...` lines against reality; check reed truth table above |
+| Door state wrong in Home app | Stale bus cache | Compare `[GDO] door=...` log lines against reality; the reconcile log `[Door] Reconcile: HAP stuck at ...` shows the correction firing |
 | Obstruction always clear, never detected | Sensor line not pulsing at GPIO34 | Measure divider midpoint: should pulse ~3 V with brief drops when clear; check BLACK wire connection |
 | Obstruction false alarms | Divider voltage / noise | Verify midpoint ≤ 3.3 V; keep the divider wiring short |
-| Reed switch reads inverted | NO switch fitted instead of NC | Use NC switches, or invert the `digitalRead() == HIGH` tests in `GarageDoorService.h` |
 | Rolling code rejected after many reboots | NVS not persisting | The boot bump (+64) covers normal operation; check the NVS partition exists (`min_spiffs.csv`) |
 | WiFi provisioning stuck | First boot, no credentials | HomeSpan CLI: type `W` in the serial monitor to set WiFi credentials |
-
-**Learn mode (diagnostic only):** typing `t` in the serial monitor arms a one-shot door command for the next learn-mode window (Learn LED lit, reported in STATUS byte2 bit5).  This is *not* required for operation — wireline control needs no enrolment.
 
 ---
 

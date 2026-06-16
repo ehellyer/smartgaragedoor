@@ -12,16 +12,20 @@
 #include <esp_rom_sys.h>    // esp_rom_delay_us
 #include <soc/gpio_sig_map.h> // U2TXD_OUT_IDX / SIG_GPIO_OUT_IDX
 
-// ── Rolling-code persistence policy ───────────────────────────────────────────
-// With periodic status polling the rolling code increments often; writing NVS
-// on every increment would wear flash (~1.4k writes/day).  Instead the counter
-// is saved every ROLLING_SAVE_EVERY increments, and on boot it is bumped by
-// ROLLING_BOOT_BUMP (> ROLLING_SAVE_EVERY) so it can never fall behind what
-// the opener last saw, even after a crash with unsaved increments.  The opener
-// accepts forward jumps in the rolling counter.  (Same strategy as ratgdo.)
+// ── Rolling-code persistence ───────────────────────────────────────────────────
+// The opener validates rolling codes per device and rejects replays (codes
+// lower than the last accepted value).  To survive reboots and crashes we
+// persist the counter to NVS, saving every ROLLING_SAVE_EVERY increments to
+// limit flash wear.  On each boot the counter is bumped by ROLLING_BOOT_BUMP
+// (> ROLLING_SAVE_EVERY) so it is always ahead of what the opener last saw,
+// even when there were unsaved increments at the time of the last power-off.
 static constexpr uint32_t ROLLING_SAVE_EVERY = 16;
 static constexpr uint32_t ROLLING_BOOT_BUMP  = 64;
-static uint32_t s_unsavedRolling = 0;   // increments since the last NVS save
+static uint32_t s_unsavedRolling = 0;
+
+static const char *NVS_NS        = "gdo";
+static const char *NVS_ROLLING   = "rolling";
+static const char *NVS_DEVICE_ID = "devId";
 
 // ── Security+ 2.0 frame preamble timing (µs) ──────────────────────────────────
 // Before every packet the sender holds the bus LOW for ≥1 byte time and then
@@ -43,23 +47,12 @@ uint8_t          GDOBus::_rxBuf[GDO_PACKET_LEN] = {};
 size_t           GDOBus::_rxIdx          = 0;
 unsigned long    GDOBus::_lastRxTime     = 0;
 uint8_t          GDOBus::_txPin          = 0;
-bool             GDOBus::_learnEnrollArmed = false;
-bool             GDOBus::_inLearnMode      = false;
-bool             GDOBus::_pendingLearnTX   = false;
 uint32_t         GDOBus::_statBytesRx    = 0;
 uint32_t         GDOBus::_statPacketsRx  = 0;
 uint32_t         GDOBus::_statDecodeErr  = 0;
 uint32_t         GDOBus::_statTxCmds    = 0;
 
-// NVS namespace and key names
-static const char *NVS_NS         = "gdo";
-static const char *NVS_ROLLING    = "rolling";
-static const char *NVS_DEVICE_ID  = "devId";
-static const char *NVS_LEARN_ARM  = "learnArm"; // persistent enrol-arm flag
-
 // ── Boot-relative timestamp helper ────────────────────────────────────────────
-// Prints "[mm:ss.ttt] " to Serial (no newline).
-// Call immediately before any [GDO] log line.
 static void ts() {
     uint32_t m = millis();
     Log.printf("[%02u:%02u.%03u] ",
@@ -69,10 +62,10 @@ static void ts() {
 }
 
 // =============================================================================
-//  begin()  —  Initialise UART and load identity from NVS
+//  begin()  —  Initialise UART and load or generate the device identity.
 // =============================================================================
 void GDOBus::begin(uint8_t tx_pin, uint8_t rx_pin) {
-    _txPin = tx_pin;   // cached for the GPIO-matrix preamble in sendPreamble()
+    _txPin = tx_pin;
     loadIdentity();
 
     // Configure UART2 for the Security+ 2.0 wireline bus.
@@ -86,11 +79,11 @@ void GDOBus::begin(uint8_t tx_pin, uint8_t rx_pin) {
     //  With invert=true both MOSFETs' inversions are cancelled transparently.
     GDO_SERIAL.begin(GDO_BAUD, SERIAL_8N1, rx_pin, tx_pin, /*invert=*/true);
 
-    // Flush any stale bytes that arrived during power-on
+    // Flush any stale bytes that arrived during power-on.
     delay(100);
     while (GDO_SERIAL.available()) GDO_SERIAL.read();
 
-    // Reset stats
+    // Reset stats.
     _statBytesRx   = 0;
     _statPacketsRx = 0;
     _statDecodeErr = 0;
@@ -121,34 +114,27 @@ bool GDOBus::verify(uint32_t timeoutMs) {
     uint32_t decodeOK    = 0;
     uint32_t decodeErr   = 0;
 
-    // Use a local buffer so we don't disturb the normal _rxBuf / _rxIdx state
     uint8_t  buf[GDO_PACKET_LEN];
-    size_t   idx          = 0;
-    unsigned long lastRx  = 0;
+    size_t   idx         = 0;
+    unsigned long lastRx = 0;
 
-    unsigned long start = millis();   // elapsed-time arithmetic is rollover-safe
+    unsigned long start = millis();
 
     while (millis() - start < timeoutMs) {
         while (GDO_SERIAL.available()) {
-            uint8_t b        = (uint8_t)GDO_SERIAL.read();
+            uint8_t b         = (uint8_t)GDO_SERIAL.read();
             unsigned long now = millis();
             rawBytes++;
 
-            // Inter-packet gap → reset buffer
-            if (idx > 0 && (now - lastRx) > RX_GAP_MS) {
-                idx = 0;
-            }
+            if (idx > 0 && (now - lastRx) > RX_GAP_MS) idx = 0;
             lastRx = now;
 
-            // Sync header validation (0x55 0x01 0x00).  On a mismatch at
-            // position 1 or 2 the buffer restarts and the current byte is
-            // re-tested as a potential packet start, so 55 55 01 00 resyncs.
             if (idx == 1 && b != 0x01)      idx = 0;
             else if (idx == 2 && b != 0x00) idx = 0;
             if (idx == 0 && b != 0x55) continue;
 
             buf[idx++] = b;
-            if (idx == 3) syncFound++;   // complete 3-byte sync header seen
+            if (idx == 3) syncFound++;
 
             if (idx == GDO_PACKET_LEN) {
                 fullPackets++;
@@ -163,25 +149,13 @@ bool GDOBus::verify(uint32_t timeoutMs) {
                 } else {
                     decodeOK++;
                     _statPacketsRx++;
-                    // Feed the decoded packet into the normal state machine
-                    // (logs the packet and updates door state / learn mode).
                     handleDecoded(rolling, device_id, command, payload);
-                    // Execute any TX queued by handleDecoded (e.g., learn-enrol arm
-                    // was restored from NVS and state=6 was just detected).  This
-                    // fires the enrolment TX during verify(), early in boot —
-                    // before the wall unit responds to the learn window.
-                    if (_pendingLearnTX) {
-                        _pendingLearnTX = false;
-                        ts(); Log.println(F("[GDO] *** Firing enrolment TX during verify() ***"));
-                        sendDoorCommand();
-                    }
                 }
             }
         }
         delay(1);
     }
 
-    // ── Diagnostic report ────────────────────────────────────────────────────
     ts(); Log.println(F("[GDO] ── Verification Report ────────────────────────────"));
     Log.printf( "[GDO]   Raw bytes received  : %lu\n", rawBytes);
     Log.printf( "[GDO]   Sync headers found  : %lu\n", syncFound);
@@ -189,7 +163,6 @@ bool GDOBus::verify(uint32_t timeoutMs) {
     Log.printf( "[GDO]   Decoded OK          : %lu\n", decodeOK);
     Log.printf( "[GDO]   Decode errors       : %lu\n", decodeErr);
 
-    // Diagnosis
     if (rawBytes == 0) {
         Log.println(F("[GDO]   >> No bytes received — check wiring:"));
         Log.println(F("[GDO]      - RED/WHITE terminals connected?"));
@@ -213,10 +186,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
     ts(); Log.printf("[GDO]   Result : %s\n", passed ? "PASS" : "FAIL");
     Log.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
 
-    // Seed the running byte counter with what we saw during verify.
-    // (Packet and decode-error counters were already incremented inline.)
     _statBytesRx += rawBytes;
-
     return passed;
 }
 
@@ -229,8 +199,10 @@ void GDOBus::printStats() {
 }
 
 // =============================================================================
-//  loadIdentity()  —  Restore rolling counter and device_id from NVS.
+//  loadIdentity()  —  Restore device_id and rolling counter from NVS.
 //                     On first boot a random identity is generated and stored.
+//                     On every subsequent boot the rolling counter is bumped
+//                     forward so it is always ahead of what the opener last saw.
 // =============================================================================
 void GDOBus::loadIdentity() {
     Preferences prefs;
@@ -239,35 +211,18 @@ void GDOBus::loadIdentity() {
     _deviceId = prefs.getULong64(NVS_DEVICE_ID, 0);
     _rolling  = prefs.getULong(NVS_ROLLING, 0);
 
-    // Jump past any increments that were not yet saved when we last powered
-    // off (see ROLLING_BOOT_BUMP above) and persist the new baseline.
     if (_deviceId != 0) {
+        // Bump past any increments that were unsaved at last power-off.
         _rolling = (_rolling + ROLLING_BOOT_BUMP) & 0x0FFFFFFFu;
         prefs.putULong(NVS_ROLLING, _rolling);
-    }
-
-    // Restore persistent learn-enrol arm (set by armLearnEnroll()).
-    // The NVS flag is cleared here so a reboot consumes it at most once; the
-    // in-RAM arm then fires during the next verify() or poll() that sees
-    // learn mode active — early in boot, before the wall unit responds to the
-    // learn window.  (If the arm instead fires live, without a reboot, the NVS flag
-    // is cleared at that point — see clearLearnArmNVS() call sites.)
-    if (prefs.getBool(NVS_LEARN_ARM, false)) {
-        _learnEnrollArmed = true;
-        prefs.putBool(NVS_LEARN_ARM, false);    // consume — arm survives at most one reboot
-        ts(); Log.println(F("[GDO] Persistent learn-enrol arm restored from NVS"));
-    }
-
-    if (_deviceId == 0) {
-        // First boot — generate a random 40-bit wired-device identity
+    } else {
+        // First boot — generate a random 40-bit wired-device identity.
         uint32_t rand32;
         esp_fill_random(&rand32, sizeof(rand32));
         _deviceId = 0xF000000000ULL | (uint64_t)rand32;
         _rolling  = 0x1000 + (rand32 & 0x0FFF);
-
         prefs.putULong64(NVS_DEVICE_ID, _deviceId);
         prefs.putULong(NVS_ROLLING, _rolling);
-
         ts(); Log.println(F("[GDO] First boot — new identity generated and stored in NVS"));
     }
 
@@ -275,9 +230,9 @@ void GDOBus::loadIdentity() {
 }
 
 // =============================================================================
-//  saveRolling()  —  Persist the rolling counter to NVS.  Called sparsely
-//                    (every ROLLING_SAVE_EVERY increments) — see the
-//                    rolling-code persistence policy at the top of this file.
+//  saveRolling()  —  Persist the rolling counter to NVS.
+//                    Called every ROLLING_SAVE_EVERY increments to limit
+//                    flash wear while keeping the saved value close to current.
 // =============================================================================
 void GDOBus::saveRolling() {
     Preferences prefs;
@@ -287,41 +242,22 @@ void GDOBus::saveRolling() {
 }
 
 // =============================================================================
-//  clearLearnArmNVS()  —  Clear the persistent learn-arm flag.
-//
-//  Must be called at EVERY point the in-RAM arm is consumed without a reboot.
-//  A stale NVS flag would silently re-arm on the next boot and could fire an
-//  unexpected door command during a future learn window (e.g., while enrolling
-//  a different remote) — a physical-safety hazard.
-// =============================================================================
-void GDOBus::clearLearnArmNVS() {
-    Preferences prefs;
-    prefs.begin(NVS_NS, false);
-    prefs.putBool(NVS_LEARN_ARM, false);
-    prefs.end();
-}
-
-// =============================================================================
-//  printHex()  —  Dump a byte buffer as hex to Serial (for debug).
+//  printHex()  —  Dump a byte buffer as hex (for diagnostics).
 // =============================================================================
 void GDOBus::printHex(const uint8_t *buf, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        Log.printf("%02X ", buf[i]);
-    }
+    for (size_t i = 0; i < len; i++) Log.printf("%02X ", buf[i]);
     Log.println();
 }
 
 // =============================================================================
 //  processRxByte()  —  Feed one received byte through the packet assembler.
-//                      Shared by poll() and the bus-idle wait in
-//                      sendDoorCommand(), so bytes arriving while we wait to
-//                      transmit are still assembled and keep _lastRxTime fresh.
+//                      Shared by poll() and the bus-idle wait in sendDoorAction()
+//                      so bytes arriving during TX waits are not lost.
 // =============================================================================
 void GDOBus::processRxByte(uint8_t b) {
     unsigned long now = millis();
     _statBytesRx++;
 
-    // Inter-packet gap → discard partial buffer
     if (_rxIdx > 0 && (now - _lastRxTime) > RX_GAP_MS) {
 #if GDO_DEBUG_LEVEL >= 2
         ts(); Log.printf("[GDO] RX gap reset (had %u bytes)\n", (unsigned)_rxIdx);
@@ -330,9 +266,6 @@ void GDOBus::processRxByte(uint8_t b) {
     }
     _lastRxTime = now;
 
-    // Validate the 3-byte sync header (0x55 0x01 0x00).  On a mismatch at
-    // position 1 or 2 the buffer restarts and the current byte is re-tested
-    // as a potential packet start, so a sequence like 55 55 01 00 resyncs.
     if (_rxIdx == 1 && b != 0x01)      _rxIdx = 0;
     else if (_rxIdx == 2 && b != 0x00) _rxIdx = 0;
     if (_rxIdx == 0 && b != 0x55) return;
@@ -357,18 +290,10 @@ void GDOBus::poll() {
     while (GDO_SERIAL.available()) {
         processRxByte((uint8_t)GDO_SERIAL.read());
     }
-
-    // Execute any TX deferred from handleDecoded() — keeps the TX out of the
-    // packet-assembly path.  sendDoorCommand() itself waits for bus idle.
-    if (_pendingLearnTX) {
-        _pendingLearnTX = false;
-        sendDoorCommand();
-    }
 }
 
 // =============================================================================
-//  processPacket()  —  Decode a complete 19-byte packet and hand it to
-//                      handleDecoded().
+//  processPacket()  —  Decode a complete 19-byte packet.
 // =============================================================================
 void GDOBus::processPacket(const uint8_t *pkt) {
     uint32_t rolling;
@@ -388,14 +313,11 @@ void GDOBus::processPacket(const uint8_t *pkt) {
 }
 
 // =============================================================================
-//  handleDecoded()  —  Act on an already-decoded packet: log it, track door
-//                      state / obstruction, and run learn-mode detection.
-//                      Called from processPacket() and from verify() (which
-//                      decodes packets itself for its diagnostic counters).
+//  handleDecoded()  —  Act on a decoded packet: log it and update cached state.
 // =============================================================================
 void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
                            uint16_t command, uint32_t payload) {
-    // Ignore the half-duplex echo of our own transmissions
+    // Ignore the half-duplex echo of our own transmissions.
     if (device_id == _deviceId) {
 #if GDO_DEBUG_LEVEL >= 2
         ts(); Log.printf("[GDO] RX  (own echo)  cmd=0x%03X\n", command);
@@ -408,27 +330,23 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
                         command, device_id, rolling, payload);
 #endif
 
-    // ── STATUS packets (0x081) — sent by the opener in response to GET_STATUS
-    //    or on its own when its state changes.  NOT broadcast periodically.
+    // ── STATUS packets (0x081) ────────────────────────────────────────────────
+    // Sent by the opener in response to GET_STATUS or when its state changes.
+    // NOT broadcast periodically.
     //
-    //  Payload field mapping (verified against ratgdo secplus2.cpp
-    //  handle_command(), and against a live capture: payload 0x16062 with the
-    //  door fully open = nibble 1 (OPEN), light on, unlocked, clear):
-    //    nibble = (payload >> 16) & 0xF :
-    //        door state  0=unknown 1=open 2=closed 3=stopped 4=opening 5=closing
-    //    byte1  = (payload >> 8) & 0xFF :
+    //  Payload field mapping (verified against ratgdo secplus2.cpp):
+    //    nibble = (payload >> 16) & 0xF  →  door state
+    //        0=unknown 1=open 2=closed 3=stopped 4=opening 5=closing
+    //    byte1  = (payload >> 8) & 0xFF
     //        bit 6 : obstruction — INVERTED: 1 = clear, 0 = obstructed
-    //    byte2  =  payload & 0xFF :
+    //    byte2  =  payload & 0xFF
     //        bit 0 : lock   1 = locked
     //        bit 1 : light  1 = on
-    //        bit 5 : learn  1 = learn mode active (Learn LED lit)
     if (command == GDO_CMD_STATUS) {
         uint8_t nibble = (payload >> 16) & 0x0F;
         uint8_t byte1  = (payload >> 8)  & 0xFF;
         uint8_t byte2  =  payload        & 0xFF;
 
-        // Timestamp every status packet (even when the state is unchanged) so
-        // callers can judge the freshness of getDoorState()/getObstruction().
         _lastStateTime = millis();
         _obstruction   = ((byte1 >> 6) & 1) == 0;   // raw 0 = obstructed
         _lightOn       = (byte2 >> 1) & 1;
@@ -441,116 +359,38 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
             case 3:  newState = GDODoorState::STOPPED; break;
             case 4:  newState = GDODoorState::OPENING; break;
             case 5:  newState = GDODoorState::CLOSING; break;
-            default: break;   // 0 = unknown — leave cached state unchanged
+            default: break;
         }
-
-        bool nowInLearn = (byte2 >> 5) & 1;
 
 #if GDO_DEBUG_LEVEL >= 1
         {
             static const char *doorNames[] = {"?","OPEN","CLOSED","STOPPED","OPENING","CLOSING"};
-            ts(); Log.printf("[GDO]     door=%-7s  light=%-3s  lock=%-8s  obstruction=%-3s  learn=%s\n",
+            ts(); Log.printf("[GDO]     door=%-7s  light=%-3s  lock=%-8s  obstruction=%s\n",
                                nibble <= 5 ? doorNames[nibble] : "?",
-                               _lightOn ? "ON"      : "off",
-                               _locked  ? "LOCKED"  : "unlocked",
-                               _obstruction ? "YES" : "no",
-                               nowInLearn ? "ACTIVE" : "off");
+                               _lightOn     ? "ON"     : "off",
+                               _locked      ? "LOCKED" : "unlocked",
+                               _obstruction ? "YES"    : "no");
         }
 #endif
 
-        // ── Learn-mode detection (STATUS byte2 bit 5 = Learn LED lit) ─────────
-        if (nowInLearn && !_inLearnMode) {
-            // Just entered learn mode
-            _inLearnMode = true;
-            ts(); Log.println(F("[GDO] *** Learn mode ACTIVE — type 't' to enrol this device ***"));
-            if (_learnEnrollArmed) {
-                _learnEnrollArmed = false;
-                clearLearnArmNVS();         // arm consumed — never leave a stale flag for next boot
-                _pendingLearnTX   = true;   // executed in poll() after byte loop
-                ts(); Log.println(F("[GDO]     (auto-enrol armed — TX queued)"));
-            }
-        } else if (!nowInLearn && _inLearnMode) {
-            // Learn window closed
-            _inLearnMode = false;
-            if (_learnEnrollArmed) {
-                // Window closed with the arm still set — expire it (RAM + NVS)
-                _learnEnrollArmed = false;
-                clearLearnArmNVS();
-                ts(); Log.println(F("[GDO] Learn mode ended (enrol TX was never sent)"));
-            } else {
-                ts(); Log.println(F("[GDO] Learn mode ended"));
-            }
-        }
-
         if (newState != GDODoorState::UNKNOWN && newState != _doorState) {
             _doorState = newState;
-            static const char *names[] = {"OPEN","CLOSED","OPENING","CLOSING","STOPPED"};
-            ts(); Log.printf("[GDO] Door state → %s\n", names[(int)newState]);
             if (_stateCallback) _stateCallback(newState);
         }
     }
 }
 
 // =============================================================================
-//  armLearnEnroll()  —  Arm auto-TX for the next learn-mode window.
-//
-//  When a STATUS packet reports learn mode active (byte2 bit5 — Learn LED
-//  lit), handleDecoded() will queue a sendDoorCommand() call via
-//  _pendingLearnTX.  The TX fires in poll() once the serial byte loop
-//  finishes; the TX path waits for bus idle before writing.
-//
-//  NOTE: enrolment is NOT required for wireline door control — the opener
-//  accepts wired commands from any device id.  Kept as a diagnostic tool.
-//
-//  Safe to call before or during the learn window — if already in learn mode,
-//  the TX is queued immediately.  Fires exactly once per arm() call.
-// =============================================================================
-void GDOBus::armLearnEnroll() {
-    if (_inLearnMode) {
-        // Already in learn mode — queue the TX immediately.  The arm is
-        // consumed on the spot, so nothing is persisted to NVS.
-        _pendingLearnTX = true;
-        ts(); Log.println(F("[GDO] Learn mode already active — TX queued"));
-        return;
-    }
-
-    _learnEnrollArmed = true;
-
-    // Persist the arm to NVS so it survives a reboot, enabling the enrolment TX
-    // to fire during verify() early in boot — before the wall unit can respond
-    // to the learn window.  The flag is cleared on next boot by loadIdentity(),
-    // or by clearLearnArmNVS() if the arm fires (or expires) without a reboot.
-    {
-        Preferences prefs;
-        prefs.begin(NVS_NS, false);
-        prefs.putBool(NVS_LEARN_ARM, true);
-        prefs.end();
-    }
-
-    // Warn if the door is currently in motion — the opener cannot enter Learn mode
-    // while moving.  The arm stays set so the TX fires if Learn is pressed later.
-    if (_doorState == GDODoorState::OPENING || _doorState == GDODoorState::CLOSING) {
-        ts(); Log.println(F("[GDO] *** WARNING: Door is in motion — wait for it to stop before pressing Learn ***"));
-    }
-    ts(); Log.println(F("[GDO] Learn-enrol armed (persists across reboot) — press Learn or reboot with Learn active"));
-}
-
-// =============================================================================
-//  waitBusIdle()  —  Wait for RX_GAP_MS of bus silence before transmitting
-//                    (half-duplex).  Incoming bytes are drained through
-//                    processRxByte() so _lastRxTime stays current and we never
-//                    transmit on top of a packet that is still arriving.
-//                    (poll() does not run during this wait, so the UART must
-//                    be serviced here.)
+//  waitBusIdle()  —  Wait for RX_GAP_MS of bus silence before transmitting.
+//                    Drains incoming bytes through processRxByte() so no
+//                    packets are lost while we wait.
 // =============================================================================
 void GDOBus::waitBusIdle() {
     unsigned long waitStart = millis();
     bool timedOut = false;
     while ((millis() - _lastRxTime) < RX_GAP_MS) {
         if (millis() - waitStart >= TX_WAIT_MS) { timedOut = true; break; }
-        while (GDO_SERIAL.available()) {
-            processRxByte((uint8_t)GDO_SERIAL.read());
-        }
+        while (GDO_SERIAL.available()) processRxByte((uint8_t)GDO_SERIAL.read());
         delay(1);
     }
     if (timedOut) {
@@ -559,33 +399,27 @@ void GDOBus::waitBusIdle() {
 }
 
 // =============================================================================
-//  sendPreamble()  —  Security+ 2.0 frame preamble.
+//  sendPreamble()  —  Security+ 2.0 frame preamble (~1.3 ms bus LOW).
 //
 //  Before every packet the bus must be held LOW for ~1.3 ms then released for
-//  ~130 µs (verified against ratgdo's RMT implementation).  The opener and the
-//  wall unit both do this — it shows up in our RX as one 0x00 byte before each
-//  packet.  WITHOUT the preamble the opener ignores our packets entirely.
+//  ~130 µs.  Without this preamble the opener ignores transmitted packets.
 //
-//  Implementation: the TX pin is temporarily detached from UART2 via the GPIO
-//  matrix and driven as a plain GPIO.  GPIO HIGH turns on the TX MOSFET which
-//  pulls the bus LOW (raw GPIO levels are NOT affected by the UART invert
-//  flag, so no inversion is applied here).
+//  The TX pin is temporarily detached from UART2 and driven as a plain GPIO.
+//  GPIO HIGH turns on the TX MOSFET which pulls the bus LOW (raw GPIO levels
+//  are NOT affected by the UART invert flag).
 // =============================================================================
 void GDOBus::sendPreamble() {
-    gpio_set_level((gpio_num_t)_txPin, 1);   // pre-set level: bus LOW once routed
+    gpio_set_level((gpio_num_t)_txPin, 1);
     esp_rom_gpio_connect_out_signal(_txPin, SIG_GPIO_OUT_IDX, false, false);
     esp_rom_delay_us(PREAMBLE_LOW_US);
-    gpio_set_level((gpio_num_t)_txPin, 0);   // release — bus floats HIGH
+    gpio_set_level((gpio_num_t)_txPin, 0);
     esp_rom_delay_us(PREAMBLE_HIGH_US);
-    // Hand the pin back to UART2 (its inverted idle drives the pin LOW = bus HIGH)
     esp_rom_gpio_connect_out_signal(_txPin, U2TXD_OUT_IDX, false, false);
     esp_rom_delay_us(5);
 }
 
 // =============================================================================
 //  txPacket()  —  Encode and transmit one wireline packet.
-//                 Waits for bus idle, sends the preamble, then the 19 bytes.
-//                 Increments + persists the rolling code if requested.
 // =============================================================================
 bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling) {
     uint8_t pkt[GDO_PACKET_LEN];
@@ -613,7 +447,6 @@ bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling)
 
     if (incrementRolling) {
         _rolling = (_rolling + 1) & 0x0FFFFFFFu;
-        // Save sparsely to limit flash wear; the boot bump covers the rest.
         if (++s_unsavedRolling >= ROLLING_SAVE_EVERY) {
             s_unsavedRolling = 0;
             saveRolling();
@@ -625,16 +458,9 @@ bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling)
 // =============================================================================
 //  sendDoorAction()  —  Transmit an explicit door action (OPEN/CLOSE/TOGGLE/STOP).
 //
-//  Per ratgdo (secplus2.cpp door_command): a door action is a button-PRESS
-//  packet (byte1=1, byte2=1) followed ~150 ms later by a RELEASE packet
-//  (byte1=0, byte2=1), with the action in the nibble.  Both packets carry the
-//  SAME rolling code; the counter increments once, after the release.
-//
-//  Payload layout (as produced by encode_wireline_command):
-//    bits [19:16] = nibble (action)   bits [15:8] = byte1   bits [7:0] = byte2
-//
-//  Wall-unit capture cross-check: a wall button press shows payload=0x20001 =
-//  TOGGLE(2) + byte1=0 + byte2=1 — i.e., the RELEASE half of this sequence.
+//  A door action is a PRESS packet (byte1=1, byte2=1) followed ~150 ms later
+//  by a RELEASE packet (byte1=0, byte2=1), both carrying the same rolling code.
+//  The counter increments once after the release.
 // =============================================================================
 void GDOBus::sendDoorAction(GDODoorAction action) {
     uint32_t a       = (uint32_t)action & 0x0F;
@@ -643,12 +469,9 @@ void GDOBus::sendDoorAction(GDODoorAction action) {
 
     if (!txPacket(GDO_CMD_DOOR_ACTION, press, /*incrementRolling=*/false)) return;
 
-    // Hold the press/release spacing while continuing to drain RX
     unsigned long start = millis();
     while (millis() - start < DOOR_RELEASE_DELAY_MS) {
-        while (GDO_SERIAL.available()) {
-            processRxByte((uint8_t)GDO_SERIAL.read());
-        }
+        while (GDO_SERIAL.available()) processRxByte((uint8_t)GDO_SERIAL.read());
         delay(1);
     }
 
@@ -656,10 +479,9 @@ void GDOBus::sendDoorAction(GDODoorAction action) {
 }
 
 // =============================================================================
-//  requestStatus()  —  Ask the opener to report its status.
-//                      It replies with a 0x081 STATUS packet (handled in
-//                      handleDecoded), which refreshes the cached door state,
-//                      obstruction flag, and lastStateTimestamp().
+//  requestStatus()  —  Ask the opener to report its current status.
+//                      The opener replies with a 0x081 STATUS packet handled
+//                      in handleDecoded(), refreshing all cached state.
 // =============================================================================
 void GDOBus::requestStatus() {
     txPacket(GDO_CMD_GET_STATUS, 0, /*incrementRolling=*/true);
@@ -668,11 +490,9 @@ void GDOBus::requestStatus() {
 // =============================================================================
 //  sendLightAction() / sendLockAction()
 //
-//  Unlike door actions, LIGHT and LOCK are single packets with the action in
-//  the nibble — no press/release pair (verified against ratgdo secplus2.cpp:
-//  light_action()/lock_action() call send_command() directly).
-//    LIGHT (0x281): nibble 0=off 1=on 2=toggle
-//    LOCK  (0x18C): nibble 0=unlock 1=lock 2=toggle  (remote lockout)
+//  LIGHT and LOCK are single packets (no press/release pair).
+//    LIGHT (0x281): nibble 0=off  1=on  2=toggle
+//    LOCK  (0x18C): nibble 0=unlock  1=lock  (remote lockout)
 // =============================================================================
 void GDOBus::sendLightAction(bool on) {
     txPacket(GDO_CMD_LIGHT, (uint32_t)(on ? 1 : 0) << 16, /*incrementRolling=*/true);
