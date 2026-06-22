@@ -32,14 +32,18 @@ public:
     }
 
     size_t write(uint8_t b) override {
+        if (_lineStart) {
+            _lineStart = false;
+            printTimestamp();
+        }
         _primary.write(b);
         _secondary.write(b);
+        if (b == '\n') _lineStart = true;
         return 1;
     }
 
     size_t write(const uint8_t* buf, size_t size) override {
-        _primary.write(buf, size);
-        _secondary.write(buf, size);
+        for (size_t i = 0; i < size; i++) write(buf[i]);
         return size;
     }
 
@@ -47,6 +51,18 @@ private:
     Print&     _primary;
     Print&     _secondary;
     const bool _manageTelnet;
+    bool       _lineStart = true;
+
+    void printTimestamp() {
+        uint32_t m = millis();
+        char buf[16];
+        int len = snprintf(buf, sizeof(buf), "[%02u:%02u.%03u] ",
+                           (unsigned)(m / 60000UL) % 100,
+                           (unsigned)(m / 1000UL)  % 60,
+                           (unsigned)(m            % 1000UL));
+        _primary.write((const uint8_t*)buf, (size_t)len);
+        _secondary.write((const uint8_t*)buf, (size_t)len);
+    }
 };
 
 // Global dual-output logger instance — defined in main.cpp.

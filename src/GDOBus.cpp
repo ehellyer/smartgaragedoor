@@ -52,15 +52,6 @@ uint32_t         GDOBus::_statPacketsRx  = 0;
 uint32_t         GDOBus::_statDecodeErr  = 0;
 uint32_t         GDOBus::_statTxCmds    = 0;
 
-// ── Boot-relative timestamp helper ────────────────────────────────────────────
-static void ts() {
-    uint32_t m = millis();
-    Log.printf("[%02u:%02u.%03u] ",
-                  (unsigned)(m / 60000UL) % 100,
-                  (unsigned)(m / 1000UL)  % 60,
-                  (unsigned)(m            % 1000UL));
-}
-
 // =============================================================================
 //  begin()  —  Initialise UART and load or generate the device identity.
 // =============================================================================
@@ -89,12 +80,12 @@ void GDOBus::begin(uint8_t tx_pin, uint8_t rx_pin) {
     _statDecodeErr = 0;
     _statTxCmds    = 0;
 
-    ts(); Log.println(F("[GDO] ── Bus Initialised ──────────────────────────────────"));
-    ts(); Log.printf( "[GDO]   UART         : Serial2  %d baud  8N1  inverted\n", GDO_BAUD);
-    ts(); Log.printf( "[GDO]   TX pin       : GPIO%d  (AO3400A gate)\n",  tx_pin);
-    ts(); Log.printf( "[GDO]   RX pin       : GPIO%d  (2N7000 drain)\n",  rx_pin);
-    ts(); Log.printf( "[GDO]   Device ID    : 0x%010llX\n", _deviceId);
-    ts(); Log.printf( "[GDO]   Rolling code : 0x%07X\n",    _rolling);
+    Log.println(F("[GDO] ── Bus Initialised ──────────────────────────────────"));
+    Log.printf( "[GDO]   UART         : Serial2  %d baud  8N1  inverted\n", GDO_BAUD);
+    Log.printf( "[GDO]   TX pin       : GPIO%d  (AO3400A gate)\n",  tx_pin);
+    Log.printf( "[GDO]   RX pin       : GPIO%d  (2N7000 drain)\n",  rx_pin);
+    Log.printf( "[GDO]   Device ID    : 0x%010llX\n", _deviceId);
+    Log.printf( "[GDO]   Rolling code : 0x%07X\n",    _rolling);
     Log.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
 }
 
@@ -144,7 +135,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
                 if (decode_wireline_command(buf, &rolling, &device_id, &command, &payload) < 0) {
                     decodeErr++;
                     _statDecodeErr++;
-                    ts(); Log.print(F("[GDO]   Decode error — raw bytes: "));
+                    Log.print(F("[GDO]   Decode error — raw bytes: "));
                     printHex(buf, GDO_PACKET_LEN);
                 } else {
                     decodeOK++;
@@ -156,7 +147,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
         delay(1);
     }
 
-    ts(); Log.println(F("[GDO] ── Verification Report ────────────────────────────"));
+    Log.println(F("[GDO] ── Verification Report ────────────────────────────"));
     Log.printf( "[GDO]   Raw bytes received  : %lu\n", rawBytes);
     Log.printf( "[GDO]   Sync headers found  : %lu\n", syncFound);
     Log.printf( "[GDO]   Complete packets    : %lu\n", fullPackets);
@@ -183,7 +174,7 @@ bool GDOBus::verify(uint32_t timeoutMs) {
     }
 
     bool passed = (decodeOK > 0);
-    ts(); Log.printf("[GDO]   Result : %s\n", passed ? "PASS" : "FAIL");
+    Log.printf("[GDO]   Result : %s\n", passed ? "PASS" : "FAIL");
     Log.println(F("[GDO] ─────────────────────────────────────────────────────\n"));
 
     _statBytesRx += rawBytes;
@@ -223,7 +214,7 @@ void GDOBus::loadIdentity() {
         _rolling  = 0x1000 + (rand32 & 0x0FFF);
         prefs.putULong64(NVS_DEVICE_ID, _deviceId);
         prefs.putULong(NVS_ROLLING, _rolling);
-        ts(); Log.println(F("[GDO] First boot — new identity generated and stored in NVS"));
+        Log.println(F("[GDO] First boot — new identity generated and stored in NVS"));
     }
 
     prefs.end();
@@ -260,7 +251,7 @@ void GDOBus::processRxByte(uint8_t b) {
 
     if (_rxIdx > 0 && (now - _lastRxTime) > RX_GAP_MS) {
 #if GDO_DEBUG_LEVEL >= 2
-        ts(); Log.printf("[GDO] RX gap reset (had %u bytes)\n", (unsigned)_rxIdx);
+        Log.printf("[GDO] RX gap reset (had %u bytes)\n", (unsigned)_rxIdx);
 #endif
         _rxIdx = 0;
     }
@@ -274,7 +265,7 @@ void GDOBus::processRxByte(uint8_t b) {
 
     if (_rxIdx == GDO_PACKET_LEN) {
 #if GDO_DEBUG_LEVEL >= 2
-        ts(); Log.print(F("[GDO] RX raw: "));
+        Log.print(F("[GDO] RX raw: "));
         printHex(_rxBuf, GDO_PACKET_LEN);
 #endif
         processPacket(_rxBuf);
@@ -303,7 +294,7 @@ void GDOBus::processPacket(const uint8_t *pkt) {
 
     if (decode_wireline_command(pkt, &rolling, &device_id, &command, &payload) < 0) {
         _statDecodeErr++;
-        ts(); Log.print(F("[GDO] RX decode error — raw: "));
+        Log.print(F("[GDO] RX decode error — raw: "));
         printHex(pkt, GDO_PACKET_LEN);
         return;
     }
@@ -320,13 +311,13 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
     // Ignore the half-duplex echo of our own transmissions.
     if (device_id == _deviceId) {
 #if GDO_DEBUG_LEVEL >= 2
-        ts(); Log.printf("[GDO] RX  (own echo)  cmd=0x%03X\n", command);
+        Log.printf("[GDO] RX  (own echo)  cmd=0x%03X\n", command);
 #endif
         return;
     }
 
 #if GDO_DEBUG_LEVEL >= 1
-    ts(); Log.printf("[GDO] RX  cmd=0x%03X  dev=0x%010llX  roll=0x%07X  payload=0x%05X\n",
+    Log.printf("[GDO] RX  cmd=0x%03X  dev=0x%010llX  roll=0x%07X  payload=0x%05X\n",
                         command, device_id, rolling, payload);
 #endif
 
@@ -365,7 +356,7 @@ void GDOBus::handleDecoded(uint32_t rolling, uint64_t device_id,
 #if GDO_DEBUG_LEVEL >= 1
         {
             static const char *doorNames[] = {"?","OPEN","CLOSED","STOPPED","OPENING","CLOSING"};
-            ts(); Log.printf("[GDO]     door=%-7s  light=%-3s  lock=%-8s  obstruction=%s\n",
+            Log.printf("[GDO]     door=%-7s  light=%-3s  lock=%-8s  obstruction=%s\n",
                                nibble <= 5 ? doorNames[nibble] : "?",
                                _lightOn     ? "ON"     : "off",
                                _locked      ? "LOCKED" : "unlocked",
@@ -394,7 +385,7 @@ void GDOBus::waitBusIdle() {
         delay(1);
     }
     if (timedOut) {
-        ts(); Log.println(F("[GDO] TX WARN: bus busy timeout — transmitting anyway"));
+        Log.println(F("[GDO] TX WARN: bus busy timeout — transmitting anyway"));
     }
 }
 
@@ -425,7 +416,7 @@ bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling)
     uint8_t pkt[GDO_PACKET_LEN];
 
     if (encode_wireline_command(_rolling, _deviceId, command, payload, pkt) < 0) {
-        ts(); Log.println(F("[GDO] TX ERROR: encode_wireline_command failed!"));
+        Log.println(F("[GDO] TX ERROR: encode_wireline_command failed!"));
         return false;
     }
 
@@ -437,11 +428,11 @@ bool GDOBus::txPacket(uint16_t command, uint32_t payload, bool incrementRolling)
     _statTxCmds++;
 
 #if GDO_DEBUG_LEVEL >= 1
-    ts(); Log.printf("[GDO] TX  cmd=0x%03X  payload=0x%05X  roll=0x%07X\n",
+    Log.printf("[GDO] TX  cmd=0x%03X  payload=0x%05X  roll=0x%07X\n",
                         command, payload, _rolling);
 #endif
 #if GDO_DEBUG_LEVEL >= 2
-    ts(); Log.print(F("[GDO] TX raw: "));
+    Log.print(F("[GDO] TX raw: "));
     printHex(pkt, GDO_PACKET_LEN);
 #endif
 
